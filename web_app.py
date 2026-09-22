@@ -181,11 +181,12 @@ conn.commit()
 TARGET = 1000000000  # 100 करोड़
 
 st.title("👑 100 Crore Wealth Hub")
-st.caption("UPI राउंड-अप, टैक्स बफ़र, AI मेंटॉर, गोल्ड वैल्यूएशन व 100 Cr रोडमैप")
+st.caption("पैसिव इनकम इंजन, UPI राउंड-अप, टैक्स बफ़र व 100 Cr रोडमैप")
 
 # टैब्स
-tab1, tab_roundup, tab_tax, tab_ai, tab_wishlist, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab_blueprint, tab5 = st.tabs([
+tab1, tab_fire, tab_roundup, tab_tax, tab_ai, tab_wishlist, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab_blueprint, tab5 = st.tabs([
     "📊 डैशबोर्ड", 
+    "🌴 पैसिव आज़ादी",
     "🪙 UPI राउंड-अप",
     "⚖️ टैक्स व इन-हैंड",
     "🧠 AI मेंटॉर",
@@ -253,29 +254,55 @@ else:
     level_title = "🐺 The Lone Hustler"
     level_num = 1
 
-# ----------------- TAB: TAX & CLEAN IN-HAND (NEW & TRENDING) -----------------
-with tab_tax:
-    st.subheader("⚖️ स्मार्ट टैक्स बफ़र व असली इन-हैंड वेल्थ (Clean White Wealth)")
-    st.caption("100 करोड़ केवल कागज़ों पर नहीं, 100% साफ़ और टैक्स-मुक्त हाथ में होना चाहिए:")
+# ----------------- TAB: PASSIVE FIRE FREEDOM ENGINE (NEW TREND) -----------------
+with tab_fire:
+    st.subheader("🌴 पैसिव कैशफ़्लो व वित्तीय आज़ादी इंजन (FIRE & Passive Income)")
+    st.caption("काम किए बिना हर महीने कितना पैसा खुद आएगा? 4% ग्लोबल वेल्थ रूल:")
 
+    col_fi1, col_fi2 = st.columns(2)
+    with col_fi1:
+        withdrawal_rate = st.slider("पैसिव विथड्रॉल दर (% वार्षिक):", min_value=3.0, max_value=8.0, value=4.0, step=0.5)
+        st.caption("4% नियम: मूल पूँजी (Principal) कभी कम नहीं होगी और ज़िंदगी भर पैसिव आय आती रहेगी।")
+    with col_fi2:
+        annual_passive = total_networth * (withdrawal_rate / 100)
+        monthly_passive = annual_passive / 12
+        daily_passive = annual_passive / 365
+        st.metric("वर्तमान शुद्ध पैसिव इनकम", f"₹{monthly_passive:,.0f} / महीना")
+        st.caption(f"रोज़ाना बिना काम किए: **₹{daily_passive:,.0f} / दिन**")
+
+    st.divider()
+    st.markdown("#### 👑 100 करोड़ पर आपकी पैसिव आज़ादी:")
+    t_annual_passive = TARGET * (withdrawal_rate / 100)
+    t_monthly_passive = t_annual_passive / 12
+    t_daily_passive = t_annual_passive / 365
+
+    col_tw1, col_tw2, col_tw3 = st.columns(3)
+    with col_tw1:
+        st.metric("सालाना पैसिव कैश", f"₹{t_annual_passive/10000000:.1f} करोड़/वर्ष")
+    with col_tw2:
+        st.metric("मासिक पैसिव सैलरी", f"₹{t_monthly_passive/100000:.1f} लाख/माह")
+    with col_tw3:
+        st.metric("प्रतिदिन पैसिव आवक", f"₹{t_daily_passive:,.0f}/दिन")
+
+    st.info("💡 **आज़ादी का नियम:** जब आपकी पैसिव इनकम आपके मासिक खर्चों से 2x हो जाती है, तो आप दुनिया के शीर्ष 1% स्वतंत्र लोगों की श्रेणी में आ जाते हैं!")
+
+# ----------------- TAB: TAX & CLEAN IN-HAND -----------------
+with tab_tax:
+    st.subheader("⚖️ स्मार्ट टैक्स बफ़र व असली इन-हैंड वेल्थ")
     col_tx1, col_tx2 = st.columns(2)
     with col_tx1:
         tax_bracket = st.slider("अनुमानित टैक्स बफ़र रेट (%):", min_value=0, max_value=35, value=15, step=5)
-        st.caption("टिप: बिज़नेस/ट्रेडिंग के लिए आमतौर पर 10% से 20% का बफ़र सुरक्षित रहता है।")
     with col_tx2:
         tax_reserve = total_gross_income * (tax_bracket / 100)
         clean_in_hand_cash = max(total_net_cash - tax_reserve, 0.0)
         clean_networth = max(clean_in_hand_cash + total_assets + total_receivables - total_liabilities, 0.0)
-        st.metric("टैक्स रिज़र्व फंड (अलग रखने योग्य)", f"₹{tax_reserve:,.0f}")
+        st.metric("टैक्स रिज़र्व फंड", f"₹{tax_reserve:,.0f}")
 
-    st.divider()
     col_res1, col_res2 = st.columns(2)
     with col_res1:
         st.metric("कुल ग्रॉस नेटवर्थ", f"₹{total_networth:,.0f}")
     with col_res2:
-        st.metric("शुद्ध टैक्स-कटी इन-हैंड नेटवर्थ 🛡️", f"₹{clean_networth:,.0f}")
-
-    st.info(f"💡 **स्मार्ट टैक्स रूल:** यदि आप अपनी कुल आय पर {tax_bracket}% टैक्स बफ़र रखते हैं, तो आपका वास्तविक लक्ष्य ग्रॉस में लगभग **₹{TARGET / (1 - (tax_bracket/100)):,.0f}** कमाने का होना चाहिए, ताकि टैक्स कटने के बाद पूरे ₹100 करोड़ हाथ में सुरक्षित रहें।")
+        st.metric("टैक्स-कटी इन-हैंड नेटवर्थ 🛡️", f"₹{clean_networth:,.0f}")
 
 # ----------------- TAB: UPI ROUND-UP -----------------
 with tab_roundup:
