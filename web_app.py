@@ -112,6 +112,14 @@ st.markdown(f"""
         padding: 10px 22px !important;
         border-radius: 8px !important;
     }}
+    .flex-card {{
+        background: linear-gradient(135deg, #1f2430 0%, #0d0f14 100%);
+        border: 2px solid #d4af37;
+        border-radius: 16px;
+        padding: 24px;
+        text-align: center;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -164,11 +172,12 @@ conn.commit()
 TARGET = 1000000000  # 100 करोड़
 
 st.title("👑 100 Crore Wealth Hub")
-st.caption("लाइव गोल्ड वैल्यूएशन, वित्तीय स्कोर, स्टेप-अप कम्पाउंडिंग व 100 करोड़ रोडमैप")
+st.caption("लाइव गेम ज़ोन, वेल्थ टाइटल्स, गोल्ड वैल्यूएशन व 100 करोड़ रोडमैप")
 
 # टैब्स
-tab1, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab_blueprint, tab5 = st.tabs([
+tab1, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab_blueprint, tab5 = st.tabs([
     "📊 डैशबोर्ड", 
+    "🎮 गेम ज़ोन",
     "💵 कमाई", 
     "💸 ख़र्च",
     "⚖️ कर्ज़ / उधारी",
@@ -179,6 +188,107 @@ tab1, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab_bluepr
     "⚡ ब्लूप्रिंट",
     "🔥 स्ट्राइक"
 ])
+
+# ----------------- डेटा फ़ेचिंग -----------------
+cash_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', daily_amount as 'रकम (₹)', note as 'विवरण' FROM income_history ORDER BY id DESC", conn)
+exp_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', amount as 'रकम (₹)', category as 'श्रेणी', note as 'विवरण' FROM expense_history ORDER BY id DESC", conn)
+asset_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', asset_type as 'प्रकार', quantity as 'मात्रा', current_value as 'मूल्य (₹)', note as 'विवरण' FROM assets_history ORDER BY id DESC", conn)
+debt_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', debt_type as 'प्रकार', person_name as 'नाम', amount as 'रकम (₹)', note as 'विवरण' FROM debt_history ORDER BY id DESC", conn)
+
+total_gross_income = cash_df["रकम (₹)"].sum() if not cash_df.empty else 0.0
+total_expenses = exp_df["रकम (₹)"].sum() if not exp_df.empty else 0.0
+total_net_cash = max(total_gross_income - total_expenses, 0.0)
+total_assets = asset_df["मूल्य (₹)"].sum() if not asset_df.empty else 0.0
+
+total_liabilities = 0.0
+total_receivables = 0.0
+if not debt_df.empty:
+    liab_rows = debt_df[debt_df["प्रकार"].str.contains("लायबिलिटी")]
+    rec_rows = debt_df[debt_df["प्रकार"].str.contains("एसेट")]
+    total_liabilities = liab_rows["रकम (₹)"].sum()
+    total_receivables = rec_rows["रकम (₹)"].sum()
+
+total_networth = max(total_net_cash + total_assets + total_receivables - total_liabilities, 0.0)
+savings_rate = ((total_gross_income - total_expenses) / total_gross_income * 100) if total_gross_income > 0 else 0.0
+
+# स्ट्राइक गणना
+today_str = str(date.today())
+unique_dates = sorted(cash_df["तारीख"].unique().tolist(), reverse=True) if not cash_df.empty else []
+streak = 0
+check_day = date.today()
+if today_str not in unique_dates:
+    check_day = date.today() - timedelta(days=1)
+while str(check_day) in unique_dates:
+    streak += 1
+    check_day = check_day - timedelta(days=1)
+
+# लेवल और टाइटल निर्धारण
+if total_networth >= 100000000:
+    level_title = "🔱 Shadow Titan (10 Cr+)"
+    level_num = 6
+elif total_networth >= 10000000:
+    level_title = "👑 Centurion Mogul (1 Cr+)"
+    level_num = 5
+elif total_networth >= 1000000:
+    level_title = "🦅 Empire Architect (10 Lakh+)"
+    level_num = 4
+elif total_networth >= 100000:
+    level_title = "🛡️ Gold Guardian (1 Lakh+)"
+    level_num = 3
+elif total_networth >= 10000:
+    level_title = "⚡ Rising Spark (10k+)"
+    level_num = 2
+else:
+    level_title = "🐺 The Lone Hustler"
+    level_num = 1
+
+# ----------------- TAB: GAME ZONE (NEW & EXCITING) -----------------
+with tab_game:
+    st.subheader("🎮 100 करोड़ एलीट गेम ज़ोन (Gamified Wealth Engine)")
+    
+    # 1. लेवल और टाइटल कार्ड
+    st.markdown(f"""
+    <div class="flex-card">
+        <h3 style="color: #d4af37 !important; margin: 0;">CURRENT RANK</h3>
+        <h1 style="color: #ffffff !important; font-size: 2.2rem; margin: 10px 0;">{level_title}</h1>
+        <p style="color: #a0aec0 !important; font-size: 1rem;">PLAYER LEVEL: <b>{level_num} / 6</b> | DISCIPLINE STREAK: <b>🔥 {streak} DAYS</b></p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.write("")
+    
+    # 2. सोशल मीडिया फ्लेक्स कार्ड जनरेटर
+    st.divider()
+    st.subheader("📸 वायरल फ्लेक्स कार्ड (Social Media Status Card)")
+    st.caption("बिना बैंक बैलेंस दिखाए अपने अनुशासन और रैंक का रुतबा दोस्तों के साथ शेयर करें:")
+    
+    col_fc1, col_fc2 = st.columns(2)
+    with col_fc1:
+        custom_tagline = st.selectbox("कार्ड पर अपना पसंदीदा कोट चुनें:", [
+            "\"Silent moves, loud results. On road to 100 Cr.\"",
+            "\"Discipline over motivation. Every single day.\"",
+            "\"Compound interest is my secret superpower.\"",
+            "\"Assets over liabilities. Always.\""
+        ])
+    with col_fc2:
+        st.info(f"🏆 **रैंक:** {level_title}\n\n🔥 **स्ट्राइक:** {streak} दिन\n\n🎯 **प्रोग्रेस:** {(total_networth/TARGET)*100:.6f}%")
+        st.success("👉 इसका स्क्रीनशॉट लेकर अपनी WhatsApp Story, Instagram Reel या Community पोस्ट में शेयर करें!")
+
+    # 3. द बिलियनेयर रूले (Daily Wealth Challenge)
+    st.divider()
+    st.subheader("🎲 द वेल्थ रूले (The Wealth Roulette Challenge)")
+    st.caption("हर दिन एक नया अनुशासन चैलेंज अनलॉक करें:")
+    
+    challenges = [
+        "🔥 **Zero-Waste Day:** आज ₹1 की भी गैर-ज़रूरी चीज़ न खरीदें। जो पैसा बचे उसे नकद में जोड़ें!",
+        "🟡 **Gold Lock Challenge:** आज अपने ख़र्चों में से कम से कम 0.5 ग्राम सोने की बचत का संकल्प लें।",
+        "🧠 **1-Hour Skill Sprint:** आज 1 घंटा कोई नई डिजिटल या बिज़नेस स्किल सीखने में लगाएँ।",
+        "⚖️ **Audit Hour:** अपने पिछले 7 दिनों के ख़र्चों को देखें और कम से कम एक फ़ालतू ख़र्च हमेशा के लिए बंद करें!"
+    ]
+    
+    if st.button("🎲 आज का चैलेंज घुमाएँ (Spin Roulette)"):
+        st.balloons()
+        st.warning(random.choice(challenges))
 
 # ----------------- TAB 2: INCOME -----------------
 with tab2:
@@ -208,7 +318,6 @@ with tab2:
             st.success(f"₹{daily_income:,.0f} जुड़ गए!")
             st.rerun()
 
-    cash_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', daily_amount as 'रकम (₹)', note as 'विवरण' FROM income_history ORDER BY id DESC", conn)
     if not cash_df.empty:
         st.dataframe(cash_df.drop(columns=["id"]), use_container_width=True)
         csv_cash = cash_df.to_csv(index=False).encode('utf-8')
@@ -241,7 +350,6 @@ with tab_exp:
             st.warning(f"₹{exp_amt:,.0f} ख़र्च दर्ज हुए!")
             st.rerun()
 
-    exp_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', amount as 'रकम (₹)', category as 'श्रेणी', note as 'विवरण' FROM expense_history ORDER BY id DESC", conn)
     if not exp_df.empty:
         st.dataframe(exp_df.drop(columns=["id"]), use_container_width=True)
         with st.expander("🗑️ ख़र्च एंट्री हटाएँ"):
@@ -273,7 +381,6 @@ with tab_debt:
             st.success("कर्ज़ रिकॉर्ड जुड़ गया!")
             st.rerun()
 
-    debt_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', debt_type as 'प्रकार', person_name as 'नाम', amount as 'रकम (₹)', note as 'विवरण' FROM debt_history ORDER BY id DESC", conn)
     if not debt_df.empty:
         st.dataframe(debt_df.drop(columns=["id"]), use_container_width=True)
         with st.expander("🗑️ कर्ज़ एंट्री हटाएँ"):
@@ -287,7 +394,6 @@ with tab_debt:
 # ----------------- TAB 3: GOLD & ASSETS -----------------
 with tab3:
     st.subheader("🥇 गोल्ड व वास्तविक संपत्तियां")
-    st.markdown("#### ⚡ लाइव मार्केट गोल्ड रेट्स")
     col_gr1, col_gr2, col_gr3 = st.columns(3)
     with col_gr1:
         st.info("🟡 24K गोल्ड: **₹7,650 / ग्राम**")
@@ -338,7 +444,6 @@ with tab3:
             st.success("एसेट जुड़ गया!")
             st.rerun()
 
-    asset_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', asset_type as 'प्रकार', quantity as 'मात्रा', current_value as 'मूल्य (₹)', note as 'विवरण' FROM assets_history ORDER BY id DESC", conn)
     if not asset_df.empty:
         st.dataframe(asset_df.drop(columns=["id"]), use_container_width=True)
         with st.expander("🗑️ एसेट एंट्री हटाएँ"):
@@ -348,23 +453,6 @@ with tab3:
                 cursor.execute("DELETE FROM assets_history WHERE id = ?", (del_asset_id,))
                 conn.commit()
                 st.rerun()
-
-# मुख्य वित्तीय गणनाएँ
-total_gross_income = cash_df["रकम (₹)"].sum() if not cash_df.empty else 0.0
-total_expenses = exp_df["रकम (₹)"].sum() if not exp_df.empty else 0.0
-total_net_cash = max(total_gross_income - total_expenses, 0.0)
-total_assets = asset_df["मूल्य (₹)"].sum() if not asset_df.empty else 0.0
-
-total_liabilities = 0.0
-total_receivables = 0.0
-if not debt_df.empty:
-    liab_rows = debt_df[debt_df["प्रकार"].str.contains("लायबिलिटी")]
-    rec_rows = debt_df[debt_df["प्रकार"].str.contains("एसेट")]
-    total_liabilities = liab_rows["रकम (₹)"].sum()
-    total_receivables = rec_rows["रकम (₹)"].sum()
-
-total_networth = max(total_net_cash + total_assets + total_receivables - total_liabilities, 0.0)
-savings_rate = ((total_gross_income - total_expenses) / total_gross_income * 100) if total_gross_income > 0 else 0.0
 
 # ----------------- TAB: HEALTH SCORE -----------------
 with tab_health:
@@ -445,6 +533,7 @@ with tab1:
                                      index=["शुद्ध नकद", "गोल्ड व एसेट्स", "लेना बाकी उधारी"])
         st.bar_chart(chart_summary)
 
+    # स्पीड मीटर
     st.divider()
     st.subheader("⚡ 100 करोड़ स्पीड मीटर")
     daily_avg = cash_df["रकम (₹)"].mean() if not cash_df.empty else 0.0
@@ -478,7 +567,7 @@ with tab1:
             ["Net Liquid Cash", f"Rs. {total_net_cash:,.0f}", "In Hand"],
             ["Total Assets & Gold", f"Rs. {total_assets:,.0f}", "Valuation"],
             ["Total Liabilities", f"Rs. {total_liabilities:,.0f}", "Debt"],
-            ["Health Score", f"{score} / 100", "Audited"]
+            ["Player Rank", str(level_title), "Ranked"]
         ]
         t = Table(summary_data, colWidths=[200, 170, 170])
         t.setStyle(TableStyle([
@@ -499,9 +588,9 @@ with tab1:
         mime="application/pdf"
     )
 
-# ----------------- TAB 4: ROADMAP & STEP-UP ACCELERATOR -----------------
+# ----------------- TAB 4: ROADMAP & STEP-UP -----------------
 with tab4:
-    st.subheader("🪜 माइलस्टोन लेडर (Wealth Milestones)")
+    st.subheader("🪜 माइलस्टोन लेडर")
     milestones = [
         ("पहला पड़ाव: 10 लाख", 1000000),
         ("दूसरा पड़ाव: 50 लाख", 5000000),
@@ -520,30 +609,25 @@ with tab4:
             st.warning(f"⏳ **{name}** — `{pct:.2f}%` पूरा (अभी ₹{diff:,.0f} बाकी)")
 
     st.divider()
-    st.subheader("⚡ स्टेप-अप कम्पाउंडिंग एक्सीलरेटर (100 Cr Fast-Track)")
+    st.subheader("⚡ स्टेप-अप कम्पाउंडिंग एक्सीलरेटर")
     col_s1, col_s2, col_s3 = st.columns(3)
     with col_s1:
         base_monthly = st.number_input("शुरुआती मासिक निवेश (₹):", min_value=1000, value=25000, step=5000)
     with col_s2:
-        step_up_pct = st.slider("सालाना बचत वृद्धि (Step-up %):", min_value=0.0, max_value=25.0, value=10.0, step=1.0)
+        step_up_pct = st.slider("सालाना बचत वृद्धि (%):", min_value=0.0, max_value=25.0, value=10.0, step=1.0)
     with col_s3:
         annual_rate = st.slider("सालाना रिटर्न (%):", min_value=8.0, max_value=25.0, value=15.0, step=0.5)
 
-    # 30 साल की स्टेप-अप तुलना
     years_list = list(range(1, 31))
     normal_fv = []
     stepup_fv = []
-    
     r = (annual_rate / 100) / 12
-    curr_stepup_invest = base_monthly
-    
-    # नॉर्मल सिमुलेशन
+
     for yr in years_list:
         n = yr * 12
         val_norm = base_monthly * (((1 + r)**n - 1) / r) * (1 + r) + (total_networth * ((1 + annual_rate/100)**yr))
         normal_fv.append(round(val_norm))
 
-    # स्टेप-अप सिमुलेशन (हर साल निवेश बढ़ता है)
     acc_val = total_networth
     for yr in years_list:
         yr_monthly = base_monthly * ((1 + step_up_pct/100) ** (yr - 1))
@@ -552,24 +636,11 @@ with tab4:
         stepup_fv.append(round(acc_val))
 
     comp_chart_df = pd.DataFrame({
-        "सामान्य बचत (No Step-up)": normal_fv,
+        "सामान्य बचत": normal_fv,
         "🚀 स्टेप-अप एक्सीलरेटर": stepup_fv
     }, index=[f"वर्ष {y}" for y in years_list])
 
     st.line_chart(comp_chart_df)
-
-    # 100 करोड़ पहुँचने के वर्ष की तुलना
-    reach_normal = None
-    reach_stepup = None
-    for yr, v1, v2 in zip(years_list, normal_fv, stepup_fv):
-        if v1 >= TARGET and reach_normal is None:
-            reach_normal = yr
-        if v2 >= TARGET and reach_stepup is None:
-            reach_stepup = yr
-
-    if reach_stepup:
-        saved_yrs = (reach_normal - reach_stepup) if reach_normal else (30 - reach_stepup)
-        st.success(f"🎯 स्टेप-अप के साथ आप **{reach_stepup}वें साल** में 100 करोड़ छू लेंगे (आपने लक्ष्य के लगभग **{saved_yrs} वर्ष बचा लिए**!)")
 
 # ----------------- TAB: BLUEPRINT -----------------
 with tab_blueprint:
@@ -585,7 +656,6 @@ with tab_blueprint:
 # ----------------- TAB 5: DISCIPLINE -----------------
 with tab5:
     st.subheader("🔥 दैनिक अनुशासन व स्ट्राइक")
-    today_str = str(date.today())
     today_savings = 0.0
     if not cash_df.empty:
         today_rows = cash_df[cash_df["तारीख"] == today_str]
