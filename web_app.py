@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
 import sqlite3
-from datetime import date
+from datetime import date, timedelta
+import random
 
 # --- पेज कॉन्फ़िगरेशन ---
 st.set_page_config(page_title="100 Crore Wealth Hub", page_icon="👑", layout="centered")
@@ -22,13 +23,14 @@ st.markdown("""
         color: #a0a0a0 !important;
     }
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
+        gap: 6px;
     }
     .stTabs [data-baseweb="tab"] {
         background-color: #1a1c24;
         border-radius: 8px;
         color: #d4af37;
-        padding: 8px 16px;
+        padding: 6px 14px;
+        font-size: 0.95rem;
     }
     .stTabs [aria-selected="true"] {
         background-color: #262936 !important;
@@ -87,18 +89,19 @@ TARGET = 1000000000  # 100 करोड़
 header_col1, header_col2 = st.columns([4, 1])
 with header_col1:
     st.title("👑 100 Crore Wealth Hub")
-    st.caption("नकद, सोना, संपत्तियां और कम्पाउंडिंग रोडमैप")
+    st.caption("नकद, सोना, संपत्तियां और वित्तीय अनुशासन ट्रैकर")
 with header_col2:
     if st.button("लॉगआउट 🔒"):
         st.session_state["authenticated"] = False
         st.rerun()
 
-# टैब्स
-tab1, tab2, tab3, tab4 = st.tabs([
+# 5 टैब्स
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📊 कुल डैशबोर्ड", 
-    "💵 नकद बचत व महीनेवार", 
+    "💵 नकद बचत", 
     "🥇 गोल्ड व एसेट्स", 
-    "🚀 100 Cr रोडमैप"
+    "🚀 100 Cr रोडमैप",
+    "🔥 अनुशासन व लक्ष्य"
 ])
 
 # ----------------- TAB 2: CASH INCOME -----------------
@@ -123,14 +126,12 @@ with tab2:
     cash_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', daily_amount as 'रकम (₹)', note as 'विवरण' FROM income_history ORDER BY id DESC", conn)
     
     if not cash_df.empty:
-        # तारीख को डेटटाइम में बदलना ताकि महीने निकाल सकें
         cash_df["Date_Obj"] = pd.to_datetime(cash_df["तारीख"])
         cash_df["महीना"] = cash_df["Date_Obj"].dt.strftime('%B %Y')
         
         st.divider()
         st.subheader("📅 महीनेवार रिपोर्ट (Monthly Analysis)")
         
-        # महीने का फ़िल्टर
         available_months = ["सभी महीने"] + list(cash_df["महीना"].unique())
         selected_month = st.selectbox("महीना चुनें:", available_months)
         
@@ -274,3 +275,58 @@ with tab4:
         st.success(f"🎯 इस रफ़्तार और कम्पाउंडिंग के साथ आप **{reach_year}वें साल** में ₹100 करोड़ पार कर जाएँगे!")
     else:
         st.info("💡 100 करोड़ और तेज़ी से पाने के लिए अपनी मासिक बचत या बिज़नेस कैशफ़्लो को बढ़ाएँ।")
+
+# ----------------- TAB 5: DISCIPLINE & DAILY TARGET -----------------
+with tab5:
+    st.subheader("🔥 दैनिक अनुशासन व स्ट्राइक (Daily Streak & Target)")
+    
+    # कोट्स
+    quotes = [
+        "\"अमीर बनने की शुरुआत बड़े सपनों से नहीं, रोज़ के छोटे अनुशासन से होती है।\"",
+        "\"जो व्यक्ति छोटे-छोटे रुपयों की कद्र नहीं करता, वह 100 करोड़ कभी नहीं संभाल सकता।\"",
+        "\"कम्पाउंडिंग दुनिया का आठवाँ अजूबा है—जो इसे समझता है वह कमाता है।\"",
+        "\"वित्तीय अनुशासन आज की कुर्बानी और कल की आज़ादी का सौदा है।\""
+    ]
+    st.info(f"💡 {random.choice(quotes)}")
+
+    today_str = str(date.today())
+    today_savings = 0.0
+    if not cash_df.empty:
+        today_rows = cash_df[cash_df["तारीख"] == today_str]
+        today_savings = today_rows["रकम (₹)"].sum()
+
+    col_d1, col_d2 = st.columns(2)
+    with col_d1:
+        daily_target = st.number_input("आज का बचत लक्ष्य (₹):", min_value=500, value=2000, step=500)
+    with col_d2:
+        st.metric("आज की कुल बचत", f"₹{today_savings:,.0f}")
+
+    # दैनिक प्रोग्रेस
+    daily_prog = min(today_savings / daily_target, 1.0)
+    st.write(f"**आज का दैनिक लक्ष्य पूरा हुआ:** `{daily_prog * 100:.1f}%`")
+    st.progress(daily_prog)
+
+    if today_savings >= daily_target:
+        st.success("🎯 आज का दैनिक अनुशासन लक्ष्य पूरा हुआ! निरंतरता ही सफलता की कुंजी है।")
+    else:
+        st.warning(f"⏳ आज के लक्ष्य से अभी ₹{daily_target - today_savings:,.0f} दूर हैं।")
+
+    # स्ट्राइक गणना
+    unique_dates = sorted(cash_df["तारीख"].unique().tolist(), reverse=True) if not cash_df.empty else []
+    streak = 0
+    check_day = date.today()
+    
+    # अगर आज एंट्री नहीं है तो कल से चेक करो
+    if today_str not in unique_dates:
+        check_day = date.today() - timedelta(days=1)
+
+    while str(check_day) in unique_dates:
+        streak += 1
+        check_day = check_day - timedelta(days=1)
+
+    st.divider()
+    s_col1, s_col2 = st.columns(2)
+    with s_col1:
+        st.metric("वर्तमान स्ट्राइक (Streak)", f"🔥 {streak} दिन")
+    with s_col2:
+        st.metric("कुल सक्रिय दिन", f"📅 {len(unique_dates)} दिन")
