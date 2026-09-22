@@ -104,20 +104,21 @@ TARGET = 1000000000  # 100 करोड़
 header_col1, header_col2 = st.columns([4, 1])
 with header_col1:
     st.title("👑 100 Crore Wealth Hub")
-    st.caption("कमाई, ख़र्च, संपत्तियां और बचत दर का पूरा हिसाब")
+    st.caption("कमाई, ख़र्च, संपत्तियां और 100 करोड़ बिज़नेस ब्लूप्रिंट")
 with header_col2:
     if st.button("लॉगआउट 🔒"):
         st.session_state["authenticated"] = False
         st.rerun()
 
-# 7 टैब्स
-tab1, tab2, tab_exp, tab_analytics, tab3, tab4, tab5, tab6 = st.tabs([
+# 8 टैब्स
+tab1, tab2, tab_exp, tab_analytics, tab3, tab4, tab_blueprint, tab5, tab6 = st.tabs([
     "📊 कुल डैशबोर्ड", 
     "💵 नकद कमाई", 
     "💸 दैनिक ख़र्च",
-    "📈 बजट व बचत दर",
+    "📈 बचत दर",
     "🥇 गोल्ड व एसेट्स", 
     "🚀 100 Cr रोडमैप",
+    "⚡ बिज़नेस ब्लूप्रिंट",
     "🔥 अनुशासन व लक्ष्य",
     "👑 विज़न बोर्ड"
 ])
@@ -201,7 +202,6 @@ with tab_exp:
 # ----------------- TAB: ANALYTICS & BUDGET -----------------
 with tab_analytics:
     st.subheader("📈 कमाई बनाम ख़र्च व बचत दर (Savings Rate)")
-    
     total_inc = cash_df["रकम (₹)"].sum() if not cash_df.empty else 0.0
     total_exp = exp_df["रकम (₹)"].sum() if not exp_df.empty else 0.0
     savings_rate = ((total_inc - total_exp) / total_inc * 100) if total_inc > 0 else 0.0
@@ -214,18 +214,17 @@ with tab_analytics:
     with col_an3:
         st.metric("बचत दर (Savings Rate)", f"{savings_rate:.1f}%")
 
-    # बार चार्ट
     comp_df = pd.DataFrame({
         "रकम (₹)": [total_inc, total_exp, max(total_inc - total_exp, 0.0)]
     }, index=["कुल कमाई", "कुल ख़र्च", "शुद्ध बचत"])
     st.bar_chart(comp_df)
 
     if savings_rate >= 50:
-        st.success(f"🎯 उत्कृष्ट! आप अपनी कमाई का **{savings_rate:.1f}%** बचा रहे हैं। यह रफ़्तार 100 करोड़ के लक्ष्य के बिल्कुल अनुकूल है।")
+        st.success(f"🎯 उत्कृष्ट! आप अपनी कमाई का **{savings_rate:.1f}%** बचा रहे हैं।")
     elif savings_rate > 0:
-        st.info(f"💡 वर्तमान बचत दर **{savings_rate:.1f}%** है। ख़र्चों पर नियंत्रण रखकर इसे 50%+ करने का प्रयास करें।")
+        st.info(f"💡 वर्तमान बचत दर **{savings_rate:.1f}%** है।")
     else:
-        st.warning("⚠️ ख़र्च कमाई से ज़्यादा हैं। कैशफ़्लो सुधारने की ज़रूरत है।")
+        st.warning("⚠️ ख़र्च कमाई से ज़्यादा हैं।")
 
 # ----------------- TAB 3: GOLD & ASSETS -----------------
 with tab3:
@@ -400,6 +399,37 @@ with tab4:
         fv = monthly_invest * (((1 + r)**n - 1) / r) * (1 + r) + (total_networth * ((1 + annual_rate/100)**yr))
         future_values.append(round(fv))
     st.line_chart(pd.DataFrame({"अनुमानित नेटवर्थ (₹)": future_values}, index=[f"वर्ष {y}" for y in years_list]))
+
+# ----------------- TAB: 100 CR BUSINESS BLUEPRINT -----------------
+with tab_blueprint:
+    st.subheader("⚡ 100 करोड़ का रिवर्स गणित (Reverse Engineering Math)")
+    st.caption("100 करोड़ कोई चमत्कार नहीं, यह केवल वॉल्यूम और वैल्यू का समीकरण है:")
+
+    blueprint_table = [
+        {"उत्पाद/सर्विस मूल्य (Ticket Size)": "₹1,000 की सर्विस / प्रॉडक्ट", "आवश्यक बिक्री / ग्राहक": "10,00,000 (10 लाख लोग)", "कुल वैल्यू": "₹100 करोड़"},
+        {"उत्पाद/सर्विस मूल्य (Ticket Size)": "₹10,000 की डील / कोर्स / टूल", "आवश्यक बिक्री / ग्राहक": "1,00,000 (1 लाख लोग)", "कुल वैल्यू": "₹100 करोड़"},
+        {"उत्पाद/सर्विस मूल्य (Ticket Size)": "₹50,000 की कॉन्ट्रैक्ट / एजेंसी डील", "आवश्यक बिक्री / ग्राहक": "20,000 लोग", "कुल वैल्यू": "₹100 करोड़"},
+        {"उत्पाद/सर्विस मूल्य (Ticket Size)": "₹1,00,000 का हाई-टिकट बिज़नेस", "आवश्यक बिक्री / ग्राहक": "10,000 लोग", "कुल वैल्यू": "₹100 करोड़"},
+        {"उत्पाद/सर्विस मूल्य (Ticket Size)": "₹10,00,000 की रियल एस्टेट डील", "आवश्यक बिक्री / ग्राहक": "1,000 लोग", "कुल वैल्यू": "₹100 करोड़"}
+    ]
+    st.dataframe(pd.DataFrame(blueprint_table), use_container_width=True)
+
+    st.divider()
+    st.subheader("🎯 कस्टम बिज़नेस लक्ष्य कैलकुलेटर")
+    col_b1, col_b2 = st.columns(2)
+    with col_b1:
+        my_product_price = st.number_input("आपके प्रॉडक्ट / सर्विस का औसत मूल्य (₹):", min_value=100.0, value=5000.0, step=500.0)
+    with col_b2:
+        needed_sales = TARGET / my_product_price if my_product_price > 0 else 0
+        st.metric("100 करोड़ के लिए कुल ग्राहक चाहिए", f"{needed_sales:,.0f} बिक्री")
+
+    st.divider()
+    st.subheader("🛠️ 100 करोड़ वेल्थ इंजन के 3 स्तंभ")
+    st.markdown("""
+    1. **सक्रिय आय (High Cashflow Engine):** बिज़नेस, हाई-इनकम स्किल्स या कॉन्ट्रैक्ट्स से हर महीने बड़ा कैश पैदा करना।
+    2. **सुरक्षित एसेट्स (Gold & Land Vault):** नकदी को तुरंत हार्ड एसेट्स (सोने और ज़मीन) में बदलकर सुरक्षित करना ताकि पैसा ख़र्च न हो सके।
+    3. **कम्पाउंडिंग गियर (Patience & Growth):** बाज़ार और इक्विटी में हिस्सेदारी जो समय के साथ अपने आप कई गुना बढ़ती है।
+    """)
 
 # ----------------- TAB 5: DISCIPLINE -----------------
 with tab5:
