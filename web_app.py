@@ -6,11 +6,10 @@ from datetime import date
 # पेज कॉन्फ़िगरेशन
 st.set_page_config(page_title="100 Crore Target Hub", page_icon="🚀", layout="centered")
 
-# --- डेटाबेस सेटअप (SQLite) ---
+# --- डेटाबेस सेटअप ---
 conn = sqlite3.connect("wealth_data.db", check_same_thread=False)
 cursor = conn.cursor()
 
-# टेबल बनाना (अगर पहले से न बनी हो)
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS income_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -21,22 +20,22 @@ cursor.execute("""
 """)
 conn.commit()
 
-# --- ऐप इंटरफ़ेस ---
+# --- मुख्य हेडिंग ---
 st.title("🚀 100 Crore Target Web App")
-st.caption("आपका निजी वित्तीय डेटाबेस: रोज़ का हिसाब हमेशा सुरक्षित")
+st.caption("निजी वित्तीय ट्रैकर: डेटाबेस और रिकॉर्ड मैनेजमेंट")
 
 TARGET = 1000000000  # 100 करोड़
 
-# फ़ॉर्म: रोज़ की एंट्री जोड़ने के लिए
+# --- नया डेटा जोड़ने का फ़ॉर्म ---
 with st.form("entry_form", clear_on_submit=True):
-    st.subheader("📝 आज की नई कमाई दर्ज करें")
+    st.subheader("📝 नई कमाई दर्ज करें")
     col_a, col_b = st.columns(2)
     with col_a:
         entry_date = st.date_input("तारीख", value=date.today())
     with col_b:
         daily_income = st.number_input("कमाई (₹ में)", min_value=0.0, step=500.0)
     
-    note = st.text_input("विवरण / नोट (उदा. बिज़नेस, ट्रेडिंग, बचत)", value="दैनिक बचत")
+    note = st.text_input("विवरण / नोट", value="दैनिक बचत")
     submit_button = st.form_submit_button("💾 डेटाबेस में सेव करें")
 
     if submit_button and daily_income > 0:
@@ -45,10 +44,11 @@ with st.form("entry_form", clear_on_submit=True):
             (str(entry_date), daily_income, note)
         )
         conn.commit()
-        st.success(f"✅ ₹{daily_income:,.0f} सफलतापूर्वक डेटाबेस में सेव हो गए!")
+        st.success(f"✅ ₹{daily_income:,.0f} डेटाबेस में जुड़ गए!")
+        st.rerun()
 
-# --- डेटाबेस से डेटा पढ़ना ---
-df = pd.read_sql_query("SELECT entry_date as 'तारीख', daily_amount as 'कमाई (₹)', note as 'विवरण' FROM income_history ORDER BY id DESC", conn)
+# --- डेटा पढ़ना ---
+df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', daily_amount as 'कमाई (₹)', note as 'विवरण' FROM income_history ORDER BY id DESC", conn)
 
 st.divider()
 
@@ -56,7 +56,7 @@ if not df.empty:
     total_saved = df["कमाई (₹)"].sum()
     total_entries = len(df)
     
-    # मुख्य कार्ड
+    # मेट्रिक्स
     col1, col2 = st.columns(2)
     with col1:
         st.metric("कुल जमा पूँजी", f"₹{total_saved:,.0f}")
@@ -65,20 +65,31 @@ if not df.empty:
 
     # प्रोग्रेस बार
     progress_percent = min(total_saved / TARGET, 1.0)
-    st.write(f"### 🎯 ₹100 करोड़ में से लक्ष्य पूरा हुआ: `{progress_percent * 100:.6f}%`")
+    st.write(f"### 🎯 100 करोड़ का लक्ष्य: `{progress_percent * 100:.6f}%`")
     st.progress(progress_percent)
 
-    remaining = TARGET - total_saved
-    st.info(f"💡 100 करोड़ के लक्ष्य तक पहुँचने के लिए अभी ₹{remaining:,.0f} और शेष हैं।")
-
-    # विज़ुअल चार्ट
-    st.write("### 📈 कमाई का ट्रेंड (ग्राफ़)")
-    chart_df = df.sort_values(by="तारीख").copy()
+    # ट्रेंड चार्ट
+    st.write("### 📈 कमाई का ट्रेंड (Line Chart)")
+    chart_df = df.sort_values(by="id").copy()
     chart_df.set_index("तारीख", inplace=True)
     st.line_chart(chart_df["कमाई (₹)"])
 
-    # हिस्ट्री टेबल
+    # रिकॉर्ड टेबल
     st.write("### 🗂️ पिछली सभी एंट्रियों का रिकॉर्ड")
-    st.dataframe(df, use_container_width=True)
+    display_df = df.drop(columns=["id"])
+    st.dataframe(display_df, use_container_width=True)
+
+    # --- ग़लत एंट्री हटाने का विकल्प ---
+    with st.expander("🗑️ ग़लत एंट्री हटाएँ (Delete Entry)"):
+        entry_to_delete = st.selectbox(
+            "हटाने के लिए एंट्री चुनें:",
+            options=df["id"].tolist(),
+            format_func=lambda x: f"ID {x} - {df.loc[df['id'] == x, 'तारीख'].values[0]} | ₹{df.loc[df['id'] == x, 'कमाई (₹)'].values[0]:,.0f} ({df.loc[df['id'] == x, 'विवरण'].values[0]})"
+        )
+        if st.button("❌ चुनी हुई एंट्री मिटाएँ", type="primary"):
+            cursor.execute("DELETE FROM income_history WHERE id = ?", (entry_to_delete,))
+            conn.commit()
+            st.warning("एंट्री मिटा दी गई!")
+            st.rerun()
 else:
-    st.info("डेटाबेस अभी खाली है। ऊपर फ़ॉर्म में आज की कमाई दर्ज करके सेव करें!")
+    st.info("डेटाबेस खाली है। ऊपर फ़ॉर्म से पहली एंट्री जोड़ें!")
