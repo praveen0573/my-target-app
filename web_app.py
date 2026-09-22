@@ -29,8 +29,8 @@ st.markdown("""
         background-color: #1a1c24;
         border-radius: 8px;
         color: #d4af37;
-        padding: 6px 14px;
-        font-size: 0.95rem;
+        padding: 6px 12px;
+        font-size: 0.9rem;
     }
     .stTabs [aria-selected="true"] {
         background-color: #262936 !important;
@@ -89,19 +89,20 @@ TARGET = 1000000000  # 100 करोड़
 header_col1, header_col2 = st.columns([4, 1])
 with header_col1:
     st.title("👑 100 Crore Wealth Hub")
-    st.caption("नकद, सोना, संपत्तियां और स्पीड मीटर")
+    st.caption("नकद, सोना, संपत्तियां और मल्टीपल इनकम स्ट्रीम्स")
 with header_col2:
     if st.button("लॉगआउट 🔒"):
         st.session_state["authenticated"] = False
         st.rerun()
 
-# 5 टैब्स
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+# 6 टैब्स
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📊 कुल डैशबोर्ड", 
     "💵 नकद बचत", 
     "🥇 गोल्ड व एसेट्स", 
     "🚀 100 Cr रोडमैप",
-    "🔥 अनुशासन व लक्ष्य"
+    "🔥 अनुशासन व लक्ष्य",
+    "👑 इनकम स्ट्रीम्स व विज़न"
 ])
 
 # ----------------- TAB 2: CASH INCOME -----------------
@@ -113,12 +114,25 @@ with tab2:
             entry_date = st.date_input("तारीख", value=date.today(), key="cash_date")
         with col_b:
             daily_income = st.number_input("रकम (₹ में)", min_value=0.0, step=500.0)
-        note = st.text_input("विवरण", value="दैनिक बचत", key="cash_note")
+        
+        col_cat1, col_cat2 = st.columns(2)
+        with col_cat1:
+            income_category = st.selectbox("आय का स्रोत (Category)", [
+                "व्यापार / बिज़नेस (Business)",
+                "दैनिक बचत (Daily Savings)",
+                "ट्रेडिंग व निवेश (Trading/Investments)",
+                "साइड वर्क / फ़्रीलांसिंग (Side Hustle)",
+                "अन्य स्रोत (Other)"
+            ])
+        with col_cat2:
+            custom_note = st.text_input("अतिरिक्त नोट", value="")
+        
+        final_note = f"[{income_category}] {custom_note}".strip()
         submit_cash = st.form_submit_button("💾 कैश सेव करें")
 
         if submit_cash and daily_income > 0:
             cursor.execute("INSERT INTO income_history (entry_date, daily_amount, note) VALUES (?, ?, ?)",
-                           (str(entry_date), daily_income, note))
+                           (str(entry_date), daily_income, final_note))
             conn.commit()
             st.success(f"₹{daily_income:,.0f} कैश में जुड़ गए!")
             st.rerun()
@@ -375,3 +389,45 @@ with tab5:
         st.metric("वर्तमान स्ट्राइक (Streak)", f"🔥 {streak} दिन")
     with s_col2:
         st.metric("कुल सक्रिय दिन", f"📅 {len(unique_dates)} दिन")
+
+# ----------------- TAB 6: INCOME STREAMS & VISION -----------------
+with tab6:
+    st.subheader("👑 आय के स्रोत (Income Streams Breakdown)")
+    
+    if not cash_df.empty:
+        # विवरण से कैटेगरी निकालना
+        def extract_cat(val):
+            if "[" in str(val) and "]" in str(val):
+                return str(val).split("]")[0].replace("[", "").strip()
+            return "अन्य स्रोत"
+
+        cash_df["Category"] = cash_df["विवरण"].apply(extract_cat)
+        cat_summary = cash_df.groupby("Category")["रकम (₹)"].sum().reset_index()
+        
+        st.write("📊 किस स्रोत से कितना धन आया:")
+        chart_cat = cat_summary.set_index("Category")
+        st.bar_chart(chart_cat)
+        st.dataframe(cat_summary, use_container_width=True)
+    else:
+        st.info("जैसे-जैसे आप नकद बचत जोड़ेंगे, आय स्रोतों का विश्लेषण यहाँ दिखेगा।")
+
+    st.divider()
+    st.subheader("🎯 100 करोड़ एलीट माइंडसेट रूल्स (Rules of Elite Wealth)")
+    
+    col_v1, col_v2 = st.columns(2)
+    with col_v1:
+        st.markdown("""
+        **1. एसेट्स पर फ़ोकस:**
+        * कभी सिर्फ़ पैसे जमा मत करो; उसे ऐसे एसेट्स (सोना, प्रॉपर्टी, बिज़नेस) में बदलो जो अपने आप बढ़ें।
+        
+        **2. कैशफ़्लो का विस्तार:**
+        * कभी भी सिर्फ़ एक इनकम पर निर्भर न रहें। नए स्किल्स और बिज़नेस से आय के नए रास्ते खोलें।
+        """)
+    with col_v2:
+        st.markdown("""
+        **3. सख्त वित्तीय अनुशासन:**
+        * दिखावे वाले खर्च शून्य, निवेश शत-प्रतिशत। 
+        
+        **4. दीर्घकालिक दृष्टि:**
+        * 100 करोड़ का लक्ष्य रातों-रात का लॉटरी टिकट नहीं, बल्कि वर्षों का अटूट संकल्प है।
+        """)
