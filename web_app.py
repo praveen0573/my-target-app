@@ -12,38 +12,6 @@ from reportlab.lib import colors
 # --- पेज कॉन्फ़िगरेशन ---
 st.set_page_config(page_title="100 Crore Wealth Hub", page_icon="👑", layout="centered")
 
-# --- कस्टम डार्क लग्ज़री CSS ---
-st.markdown("""
-    <style>
-    .stApp {
-        background-color: #0e1117;
-        color: #e0e0e0;
-    }
-    div[data-testid="stMetricValue"] {
-        color: #d4af37 !important;
-        font-weight: 700;
-        font-size: 1.8rem;
-    }
-    div[data-testid="stMetricLabel"] {
-        color: #a0a0a0 !important;
-    }
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 6px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        background-color: #1a1c24;
-        border-radius: 8px;
-        color: #d4af37;
-        padding: 6px 12px;
-        font-size: 0.9rem;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #262936 !important;
-        border-bottom: 2px solid #d4af37 !important;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
 # --- सुरक्षा पिन (Secret PIN) ---
 SECRET_PIN = "1234"
 
@@ -62,6 +30,100 @@ if not st.session_state["authenticated"]:
         else:
             st.error("गलत पिन! कृपया सही पिन दर्ज करें।")
     st.stop()
+
+# --- थीम सेलेक्टर (Sidebar Theme Customizer) ---
+with st.sidebar:
+    st.title("🎨 थीम व सेटिंग्स")
+    theme_choice = st.selectbox(
+        "अपनी पसंद का रंग/थीम चुनें:",
+        ["🌟 रॉयल गोल्ड डार्क (Dark Gold)", "☀️ क्लासिक लाइट (Bright White)", "🌌 डीप नेवी ब्लू (Navy Blue)", "🌿 लग्ज़री ग्रीन (Emerald)"]
+    )
+    if st.button("लॉगआउट 🔒"):
+        st.session_state["authenticated"] = False
+        st.rerun()
+
+# थीम्स के अनुसार कस्टम CSS (सभी लेबल्स और बटन टेक्स्ट 100% साफ़ दिखेंगे)
+if theme_choice == "☀️ क्लासिक लाइट (Bright White)":
+    bg_color = "#f8f9fa"
+    text_color = "#111827"
+    card_bg = "#ffffff"
+    accent = "#d97706"
+    tab_bg = "#e5e7eb"
+    btn_bg = "#2563eb"
+    btn_text = "#ffffff"
+elif theme_choice == "🌌 डीप नेवी ब्लू (Navy Blue)":
+    bg_color = "#0a192f"
+    text_color = "#e6f1ff"
+    card_bg = "#112240"
+    accent = "#64ffda"
+    tab_bg = "#172a45"
+    btn_bg = "#64ffda"
+    btn_text = "#0a192f"
+elif theme_choice == "🌿 लग्ज़री ग्रीन (Emerald)":
+    bg_color = "#06231a"
+    text_color = "#e8f5e9"
+    card_bg = "#0c3b2e"
+    accent = "#69db7c"
+    tab_bg = "#134e3f"
+    btn_bg = "#69db7c"
+    btn_text = "#06231a"
+else:  # रॉयल गोल्ड डार्क
+    bg_color = "#12141a"
+    text_color = "#ffffff"
+    card_bg = "#1c1f2a"
+    accent = "#f59e0b"
+    tab_bg = "#232736"
+    btn_bg = "#f59e0b"
+    btn_text = "#111827"
+
+st.markdown(f"""
+    <style>
+    .stApp {{
+        background-color: {bg_color} !important;
+        color: {text_color} !important;
+    }}
+    label, .stMarkdown, p, h1, h2, h3, span {{
+        color: {text_color} !important;
+        font-weight: 500;
+    }}
+    div[data-testid="stMetricValue"] {{
+        color: {accent} !important;
+        font-weight: 800 !important;
+        font-size: 1.8rem;
+    }}
+    div[data-testid="stMetricLabel"] {{
+        color: {text_color} !important;
+        font-weight: 600 !important;
+        opacity: 0.9;
+    }}
+    .stTabs [data-baseweb="tab-list"] {{
+        gap: 6px;
+    }}
+    .stTabs [data-baseweb="tab"] {{
+        background-color: {tab_bg} !important;
+        border-radius: 8px;
+        color: {text_color} !important;
+        padding: 6px 12px;
+        font-size: 0.9rem;
+    }}
+    .stTabs [aria-selected="true"] {{
+        border-bottom: 3px solid {accent} !important;
+        font-weight: 700 !important;
+    }}
+    .stDownloadButton button {{
+        background-color: {btn_bg} !important;
+        color: {btn_text} !important;
+        font-weight: bold !important;
+        border: none !important;
+        padding: 10px 20px !important;
+        border-radius: 8px !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2) !important;
+    }}
+    .stDownloadButton button:hover {{
+        opacity: 0.9;
+    }}
+    </style>
+""", unsafe_allow_html=True)
 
 # --- डेटाबेस सेटअप ---
 conn = sqlite3.connect("wealth_data.db", check_same_thread=False)
@@ -100,18 +162,12 @@ conn.commit()
 
 TARGET = 1000000000  # 100 करोड़
 
-# हेडर और लॉगआउट
-header_col1, header_col2 = st.columns([4, 1])
-with header_col1:
-    st.title("👑 100 Crore Wealth Hub")
-    st.caption("कमाई, ख़र्च, संपत्तियां और 100 करोड़ बिज़नेस ब्लूप्रिंट")
-with header_col2:
-    if st.button("लॉगआउट 🔒"):
-        st.session_state["authenticated"] = False
-        st.rerun()
+# मुख्य हेडिंग
+st.title("👑 100 Crore Wealth Hub")
+st.caption("रंग बदलें, नकद, ख़र्च, संपत्तियां और 100 करोड़ का लक्ष्य ट्रैक करें")
 
 # 8 टैब्स
-tab1, tab2, tab_exp, tab_analytics, tab3, tab4, tab_blueprint, tab5, tab6 = st.tabs([
+tab1, tab2, tab_exp, tab_analytics, tab3, tab4, tab_blueprint, tab5 = st.tabs([
     "📊 कुल डैशबोर्ड", 
     "💵 नकद कमाई", 
     "💸 दैनिक ख़र्च",
@@ -119,8 +175,7 @@ tab1, tab2, tab_exp, tab_analytics, tab3, tab4, tab_blueprint, tab5, tab6 = st.t
     "🥇 गोल्ड व एसेट्स", 
     "🚀 100 Cr रोडमैप",
     "⚡ बिज़नेस ब्लूप्रिंट",
-    "🔥 अनुशासन व लक्ष्य",
-    "👑 विज़न बोर्ड"
+    "🔥 अनुशासन व लक्ष्य"
 ])
 
 # ----------------- TAB 2: CASH INCOME -----------------
@@ -219,13 +274,6 @@ with tab_analytics:
     }, index=["कुल कमाई", "कुल ख़र्च", "शुद्ध बचत"])
     st.bar_chart(comp_df)
 
-    if savings_rate >= 50:
-        st.success(f"🎯 उत्कृष्ट! आप अपनी कमाई का **{savings_rate:.1f}%** बचा रहे हैं।")
-    elif savings_rate > 0:
-        st.info(f"💡 वर्तमान बचत दर **{savings_rate:.1f}%** है।")
-    else:
-        st.warning("⚠️ ख़र्च कमाई से ज़्यादा हैं।")
-
 # ----------------- TAB 3: GOLD & ASSETS -----------------
 with tab3:
     st.subheader("🥇 गोल्ड व अन्य संपत्तियां")
@@ -321,12 +369,12 @@ with tab1:
         else:
             st.write("वर्तमान गति से समय लगेगा: -- वर्ष")
     with col_v2:
-        target_years = st.selectbox("100 करोड़ पाने का लक्ष्य समय:", [10, 15, 20, 25, 30], index=1)
+        target_years = st.selectbox("100 करोड़ पाने का लक्ष्य समय (साल):", [10, 15, 20, 25, 30], index=1)
         req_month = (TARGET - total_networth) / (target_years * 12)
         st.write(f"**{target_years} साल में 100 करोड़ के लिए:**")
         st.write(f"मासिक शुद्ध बचत चाहिए: **₹{req_month:,.0f}/महीना**")
 
-    # PDF डाउनलोड
+    # PDF डाउनलोड बटन (सुपर क्लियर)
     st.divider()
     def generate_wealth_pdf():
         buffer = io.BytesIO()
@@ -357,7 +405,7 @@ with tab1:
         return buffer
 
     st.download_button(
-        label="📥 वेल्थ ऑडिट PDF डाउनलोड करें",
+        label="📥 वेल्थ ऑडिट PDF डाउनलोड करें (Click to Download)",
         data=generate_wealth_pdf(),
         file_name=f"Wealth_Report_{date.today()}.pdf",
         mime="application/pdf"
@@ -402,44 +450,18 @@ with tab4:
 
 # ----------------- TAB: 100 CR BUSINESS BLUEPRINT -----------------
 with tab_blueprint:
-    st.subheader("⚡ 100 करोड़ का रिवर्स गणित (Reverse Engineering Math)")
-    st.caption("100 करोड़ कोई चमत्कार नहीं, यह केवल वॉल्यूम और वैल्यू का समीकरण है:")
-
+    st.subheader("⚡ 100 करोड़ का रिवर्स गणित")
     blueprint_table = [
         {"उत्पाद/सर्विस मूल्य (Ticket Size)": "₹1,000 की सर्विस / प्रॉडक्ट", "आवश्यक बिक्री / ग्राहक": "10,00,000 (10 लाख लोग)", "कुल वैल्यू": "₹100 करोड़"},
         {"उत्पाद/सर्विस मूल्य (Ticket Size)": "₹10,000 की डील / कोर्स / टूल", "आवश्यक बिक्री / ग्राहक": "1,00,000 (1 लाख लोग)", "कुल वैल्यू": "₹100 करोड़"},
         {"उत्पाद/सर्विस मूल्य (Ticket Size)": "₹50,000 की कॉन्ट्रैक्ट / एजेंसी डील", "आवश्यक बिक्री / ग्राहक": "20,000 लोग", "कुल वैल्यू": "₹100 करोड़"},
-        {"उत्पाद/सर्विस मूल्य (Ticket Size)": "₹1,00,000 का हाई-टिकट बिज़नेस", "आवश्यक बिक्री / ग्राहक": "10,000 लोग", "कुल वैल्यू": "₹100 करोड़"},
-        {"उत्पाद/सर्विस मूल्य (Ticket Size)": "₹10,00,000 की रियल एस्टेट डील", "आवश्यक बिक्री / ग्राहक": "1,000 लोग", "कुल वैल्यू": "₹100 करोड़"}
+        {"उत्पाद/सर्विस मूल्य (Ticket Size)": "₹1,00,000 का हाई-टिकट बिज़नेस", "आवश्यक बिक्री / ग्राहक": "10,000 लोग", "कुल वैल्यू": "₹100 करोड़"}
     ]
     st.dataframe(pd.DataFrame(blueprint_table), use_container_width=True)
-
-    st.divider()
-    st.subheader("🎯 कस्टम बिज़नेस लक्ष्य कैलकुलेटर")
-    col_b1, col_b2 = st.columns(2)
-    with col_b1:
-        my_product_price = st.number_input("आपके प्रॉडक्ट / सर्विस का औसत मूल्य (₹):", min_value=100.0, value=5000.0, step=500.0)
-    with col_b2:
-        needed_sales = TARGET / my_product_price if my_product_price > 0 else 0
-        st.metric("100 करोड़ के लिए कुल ग्राहक चाहिए", f"{needed_sales:,.0f} बिक्री")
-
-    st.divider()
-    st.subheader("🛠️ 100 करोड़ वेल्थ इंजन के 3 स्तंभ")
-    st.markdown("""
-    1. **सक्रिय आय (High Cashflow Engine):** बिज़नेस, हाई-इनकम स्किल्स या कॉन्ट्रैक्ट्स से हर महीने बड़ा कैश पैदा करना।
-    2. **सुरक्षित एसेट्स (Gold & Land Vault):** नकदी को तुरंत हार्ड एसेट्स (सोने और ज़मीन) में बदलकर सुरक्षित करना ताकि पैसा ख़र्च न हो सके।
-    3. **कम्पाउंडिंग गियर (Patience & Growth):** बाज़ार और इक्विटी में हिस्सेदारी जो समय के साथ अपने आप कई गुना बढ़ती है।
-    """)
 
 # ----------------- TAB 5: DISCIPLINE -----------------
 with tab5:
     st.subheader("🔥 दैनिक अनुशासन व स्ट्राइक")
-    quotes = [
-        "\"अमीर बनने की शुरुआत बड़े सपनों से नहीं, रोज़ के छोटे अनुशासन से होती है।\"",
-        "\"वित्तीय अनुशासन आज की कुर्बानी और कल की आज़ादी का सौदा है।\""
-    ]
-    st.info(f"💡 {random.choice(quotes)}")
-
     today_str = str(date.today())
     today_savings = 0.0
     if not cash_df.empty:
@@ -454,12 +476,3 @@ with tab5:
 
     daily_prog = min(today_savings / daily_target, 1.0)
     st.progress(daily_prog)
-
-# ----------------- TAB 6: VISION -----------------
-with tab6:
-    st.subheader("👑 100 करोड़ एलीट माइंडसेट")
-    st.markdown("""
-    * **खर्चों पर नियंत्रण:** कमाई जितनी भी बढ़े, जीवनशैली का दिखावा न बढ़ाएँ।
-    * **नकद से संपत्ति:** बची हुई नकदी को सोने, ज़मीन या बढ़ते बिज़नेस में लगाते रहें।
-    * **कम्पाउंडिंग का धैर्य:** 100 करोड़ की यात्रा समय और निरंतरता माँगती है।
-    """)
