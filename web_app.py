@@ -3,11 +3,42 @@ import pandas as pd
 import sqlite3
 from datetime import date
 
-# पेज कॉन्फ़िगरेशन
+# --- पेज कॉन्फ़िगरेशन ---
 st.set_page_config(page_title="100 Crore Wealth Hub", page_icon="👑", layout="centered")
 
+# --- कस्टम डार्क लग्ज़री CSS ---
+st.markdown("""
+    <style>
+    .stApp {
+        background-color: #0e1117;
+        color: #e0e0e0;
+    }
+    div[data-testid="stMetricValue"] {
+        color: #d4af37 !important;
+        font-weight: 700;
+        font-size: 1.8rem;
+    }
+    div[data-testid="stMetricLabel"] {
+        color: #a0a0a0 !important;
+    }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #1a1c24;
+        border-radius: 8px;
+        color: #d4af37;
+        padding: 8px 16px;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #262936 !important;
+        border-bottom: 2px solid #d4af37 !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # --- सुरक्षा पिन (Secret PIN Protection) ---
-SECRET_PIN = "1234"  # इसे आप अपनी पसंद के 4 अंकों से बदल सकते हैं
+SECRET_PIN = "1234"
 
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
@@ -65,7 +96,7 @@ with header_col2:
 # टैब्स
 tab1, tab2, tab3, tab4 = st.tabs([
     "📊 कुल डैशबोर्ड", 
-    "💵 नकद बचत (Cash)", 
+    "💵 नकद बचत व महीनेवार", 
     "🥇 गोल्ड व एसेट्स", 
     "🚀 100 Cr रोडमैप"
 ])
@@ -90,9 +121,36 @@ with tab2:
             st.rerun()
 
     cash_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', daily_amount as 'रकम (₹)', note as 'विवरण' FROM income_history ORDER BY id DESC", conn)
+    
     if not cash_df.empty:
-        st.dataframe(cash_df.drop(columns=["id"]), use_container_width=True)
-        csv_cash = cash_df.to_csv(index=False).encode('utf-8')
+        # तारीख को डेटटाइम में बदलना ताकि महीने निकाल सकें
+        cash_df["Date_Obj"] = pd.to_datetime(cash_df["तारीख"])
+        cash_df["महीना"] = cash_df["Date_Obj"].dt.strftime('%B %Y')
+        
+        st.divider()
+        st.subheader("📅 महीनेवार रिपोर्ट (Monthly Analysis)")
+        
+        # महीने का फ़िल्टर
+        available_months = ["सभी महीने"] + list(cash_df["महीना"].unique())
+        selected_month = st.selectbox("महीना चुनें:", available_months)
+        
+        if selected_month == "सभी महीने":
+            filtered_cash = cash_df
+        else:
+            filtered_cash = cash_df[cash_df["महीना"] == selected_month]
+            
+        m_col1, m_col2, m_col3 = st.columns(3)
+        with m_col1:
+            st.metric("चुने महीने की कुल बचत", f"₹{filtered_cash['रकम (₹)'].sum():,.0f}")
+        with m_col2:
+            st.metric("कुल एंट्रियां", f"{len(filtered_cash)} बार")
+        with m_col3:
+            avg_val = filtered_cash['रकम (₹)'].mean() if len(filtered_cash) > 0 else 0
+            st.metric("औसत प्रति एंट्री", f"₹{avg_val:,.0f}")
+
+        st.dataframe(filtered_cash.drop(columns=["id", "Date_Obj", "महीना"]), use_container_width=True)
+        
+        csv_cash = cash_df.drop(columns=["Date_Obj", "महीना"]).to_csv(index=False).encode('utf-8')
         st.download_button("📥 नकद डेटा डाउनलोड करें", data=csv_cash, file_name="cash_records.csv", mime="text/csv")
         
         with st.expander("🗑️ नकद एंट्री हटाएँ"):
@@ -192,14 +250,12 @@ with tab4:
     with col_s2:
         annual_rate = st.slider("अनुमानित सालाना रिटर्न (% में):", min_value=8.0, max_value=25.0, value=15.0, step=0.5)
 
-    # 30 साल का कम्पाउंडिंग प्रोजेक्शन
     years_list = list(range(1, 31))
     future_values = []
     r = (annual_rate / 100) / 12
 
     for yr in years_list:
         n = yr * 12
-        # Future value of SIP formula: P * [((1 + r)^n - 1) / r] * (1 + r)
         fv = monthly_invest * (((1 + r)**n - 1) / r) * (1 + r) + (total_networth * ((1 + annual_rate/100)**yr))
         future_values.append(round(fv))
 
@@ -208,7 +264,6 @@ with tab4:
     st.write(f"📈 अगले 30 सालों में कम्पाउंडिंग का ग्राफ़ ({annual_rate}% सालाना रिटर्न पर):")
     st.line_chart(sim_df)
 
-    # 100 करोड़ कब छुएगा
     reach_year = None
     for yr, val in zip(years_list, future_values):
         if val >= TARGET:
