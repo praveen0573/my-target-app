@@ -6,11 +6,29 @@ from datetime import date
 # पेज कॉन्फ़िगरेशन
 st.set_page_config(page_title="100 Crore Wealth Hub", page_icon="👑", layout="centered")
 
+# --- सुरक्षा पिन (Secret PIN Protection) ---
+SECRET_PIN = "1234"  # इसे आप अपनी पसंद के 4 अंकों से बदल सकते हैं
+
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+if not st.session_state["authenticated"]:
+    st.title("🔒 100 Crore Wealth Vault")
+    st.caption("यह एक सुरक्षित वित्तीय ऐप है। जारी रखने के लिए पिन दर्ज करें।")
+    pin_input = st.text_input("अपना 4-अंकों का गुप्त पिन डालें:", type="password")
+    if st.button("लॉगिन करें 🔓", type="primary"):
+        if pin_input == SECRET_PIN:
+            st.session_state["authenticated"] = True
+            st.success("सफलतापूर्वक अनलॉक हुआ!")
+            st.rerun()
+        else:
+            st.error("गलत पिन! कृपया सही पिन दर्ज करें।")
+    st.stop()
+
 # --- डेटाबेस सेटअप ---
 conn = sqlite3.connect("wealth_data.db", check_same_thread=False)
 cursor = conn.cursor()
 
-# नकद कमाई टेबल
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS income_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -20,7 +38,6 @@ cursor.execute("""
     )
 """)
 
-# एसेट/गोल्ड टेबल
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS assets_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,10 +52,17 @@ conn.commit()
 
 TARGET = 1000000000  # 100 करोड़
 
-st.title("👑 100 Crore Wealth Hub")
-st.caption("नकद, सोना और संपत्तियों का पूरा हिसाब एक जगह")
+# हेडर और लॉगआउट
+header_col1, header_col2 = st.columns([4, 1])
+with header_col1:
+    st.title("👑 100 Crore Wealth Hub")
+    st.caption("नकद, सोना और संपत्तियों का सुरक्षित डैशबोर्ड")
+with header_col2:
+    if st.button("लॉगआउट 🔒"):
+        st.session_state["authenticated"] = False
+        st.rerun()
 
-# 3 अलग-अलग टैब्स
+# टैब्स
 tab1, tab2, tab3 = st.tabs(["📊 कुल नेटवर्थ (Dashboard)", "💵 नकद बचत (Cash)", "🥇 गोल्ड और एसेट्स (Assets)"])
 
 # ----------------- TAB 2: CASH INCOME -----------------
@@ -63,6 +87,11 @@ with tab2:
     cash_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', daily_amount as 'रकम (₹)', note as 'विवरण' FROM income_history ORDER BY id DESC", conn)
     if not cash_df.empty:
         st.dataframe(cash_df.drop(columns=["id"]), use_container_width=True)
+        
+        # बैकअप डाउनलोड बटन
+        csv_cash = cash_df.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 नकद डेटा एक्सेल/CSV डाउनलोड करें", data=csv_cash, file_name="cash_records.csv", mime="text/csv")
+        
         with st.expander("🗑️ नकद एंट्री हटाएँ"):
             del_id = st.selectbox("एंट्री चुनें:", options=cash_df["id"].tolist(),
                                   format_func=lambda x: f"ID {x} - ₹{cash_df.loc[cash_df['id']==x, 'रकम (₹)'].values[0]:,.0f}")
@@ -89,12 +118,17 @@ with tab3:
             cursor.execute("INSERT INTO assets_history (entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, ?, ?, ?)",
                            (str(asset_date), asset_type, quantity, current_value, asset_note))
             conn.commit()
-            st.success(f"एसेट दर्ज हो गया!")
+            st.success("एसेट दर्ज हो गया!")
             st.rerun()
 
     asset_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', asset_type as 'प्रकार', quantity as 'मात्रा', current_value as 'वैल्यू (₹)', note as 'विवरण' FROM assets_history ORDER BY id DESC", conn)
     if not asset_df.empty:
         st.dataframe(asset_df.drop(columns=["id"]), use_container_width=True)
+        
+        # बैकअप डाउनलोड बटन
+        csv_asset = asset_df.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 एसेट डेटा एक्सेल/CSV डाउनलोड करें", data=csv_asset, file_name="asset_records.csv", mime="text/csv")
+        
         with st.expander("🗑️ एसेट एंट्री हटाएँ"):
             del_asset_id = st.selectbox("एसेट चुनें:", options=asset_df["id"].tolist(),
                                         format_func=lambda x: f"ID {x} - {asset_df.loc[asset_df['id']==x, 'प्रकार'].values[0]} (₹{asset_df.loc[asset_df['id']==x, 'वैल्यू (₹)'].values[0]:,.0f})")
@@ -117,14 +151,12 @@ with tab1:
     with col_m3:
         st.metric("कुल नेटवर्थ", f"₹{total_networth:,.0f}")
 
-    # प्रोग्रेस बार
     progress_val = min(total_networth / TARGET, 1.0)
     st.write(f"### 🎯 100 करोड़ के लक्ष्य का सफर: `{progress_val * 100:.6f}%`")
     st.progress(progress_val)
-    st.info(f"💡 100 करोड़ तक पहुँचने में अभी ₹{TARGET - total_networth:,.0f} और चाहिए।")
+    st.info(f"💡 100 करोड़ तक पहुँचने में अभी ₹{TARGET - total_networth:,.0f} और शेष हैं।")
 
-    # पाई चार्ट / विभाजन
     if total_networth > 0:
         st.write("### 🍰 संपत्ति का बँटवारा (Asset Allocation)")
-        pie_data = pd.DataFrame({"राशि (₹)": [total_cash, total_assets]}, index=["नकद बचत", "गोल्ड व एसेट्स"])
-        st.bar_chart(pie_data)
+        chart_summary = pd.DataFrame({"राशि (₹)": [total_cash, total_assets]}, index=["नकद बचत", "गोल्ड व एसेट्स"])
+        st.bar_chart(chart_summary)
