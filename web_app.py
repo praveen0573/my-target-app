@@ -6,6 +6,7 @@ import random
 import io
 import requests
 import math
+import os
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -33,13 +34,94 @@ if not st.session_state["authenticated"]:
             st.error("गलत पिन! सही पिन दर्ज करें।")
     st.stop()
 
-# --- साइडबार थीम सेलेक्टर ---
+# --- डेटाबेस सेटअप ---
+DB_PATH = "wealth_data.db"
+conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+cursor = conn.cursor()
+
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS income_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entry_date TEXT,
+        daily_amount REAL,
+        note TEXT
+    )
+""")
+
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS expense_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entry_date TEXT,
+        amount REAL,
+        category TEXT,
+        note TEXT
+    )
+""")
+
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS assets_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entry_date TEXT,
+        asset_type TEXT,
+        quantity REAL,
+        current_value REAL,
+        note TEXT
+    )
+""")
+
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS debt_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entry_date TEXT,
+        debt_type TEXT,
+        person_name TEXT,
+        amount REAL,
+        note TEXT
+    )
+""")
+
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS custom_wishlist (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        item_name TEXT,
+        cost REAL
+    )
+""")
+conn.commit()
+
+# --- साइडबार थीम व डेटा बैकअप / रीस्टोर ---
 with st.sidebar:
     st.title("🎨 थीम व सेटिंग्स")
     theme_choice = st.selectbox(
         "अपनी पसंद का रंग चुनें:",
         ["🌟 रॉयल गोल्ड डार्क", "☀️ क्लासिक ब्राइट लाइट", "🌌 डीप नेवी ब्लू", "🌿 लग्ज़री ग्रीन"]
     )
+    
+    st.divider()
+    st.subheader("💾 डेटा बैकअप व रीस्टोर")
+    st.caption("अपने सारे रिकॉर्ड्स को सुरक्षित अपने फ़ोन में डाउनलोड करें:")
+    
+    # बैकअप डाउनलोड
+    if os.path.exists(DB_PATH):
+        with open(DB_PATH, "rb") as fp:
+            st.download_button(
+                label="📥 डेटाबेस बैकअप डाउनलोड करें",
+                data=fp,
+                file_name=f"wealth_backup_{date.today()}.db",
+                mime="application/octet-stream"
+            )
+            
+    # बैकअप रीस्टोर
+    uploaded_db = st.file_uploader("📤 बैकअप फ़ाइल अपलोड करें (.db):", type=["db"])
+    if uploaded_db is not None:
+        if st.button("🔄 डेटा रीस्टोर करें"):
+            conn.close()
+            with open(DB_PATH, "wb") as f:
+                f.write(uploaded_db.getbuffer())
+            st.success("डेटा सफलतापूर्वक रीस्टोर हो गया!")
+            st.rerun()
+
+    st.divider()
     if st.button("लॉगआउट 🔒"):
         st.session_state["authenticated"] = False
         st.rerun()
@@ -124,64 +206,10 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
-# --- डेटाबेस सेटअप ---
-conn = sqlite3.connect("wealth_data.db", check_same_thread=False)
-cursor = conn.cursor()
-
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS income_history (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        entry_date TEXT,
-        daily_amount REAL,
-        note TEXT
-    )
-""")
-
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS expense_history (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        entry_date TEXT,
-        amount REAL,
-        category TEXT,
-        note TEXT
-    )
-""")
-
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS assets_history (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        entry_date TEXT,
-        asset_type TEXT,
-        quantity REAL,
-        current_value REAL,
-        note TEXT
-    )
-""")
-
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS debt_history (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        entry_date TEXT,
-        debt_type TEXT,
-        person_name TEXT,
-        amount REAL,
-        note TEXT
-    )
-""")
-
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS custom_wishlist (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        item_name TEXT,
-        cost REAL
-    )
-""")
-conn.commit()
-
 TARGET = 1000000000  # 100 करोड़
 
 st.title("👑 100 Crore Wealth Hub")
-st.caption("पैसिव इनकम इंजन, UPI राउंड-अप, टैक्स बफ़र व 100 Cr रोडमैप")
+st.caption("पैसिव इनकम इंजन, बैकअप सुरक्षा, UPI राउंड-अप व 100 Cr रोडमैप")
 
 # टैब्स
 tab1, tab_fire, tab_roundup, tab_tax, tab_ai, tab_wishlist, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab_blueprint, tab5 = st.tabs([
@@ -254,7 +282,7 @@ else:
     level_title = "🐺 The Lone Hustler"
     level_num = 1
 
-# ----------------- TAB: PASSIVE FIRE FREEDOM ENGINE (NEW TREND) -----------------
+# ----------------- TAB: PASSIVE FIRE FREEDOM ENGINE -----------------
 with tab_fire:
     st.subheader("🌴 पैसिव कैशफ़्लो व वित्तीय आज़ादी इंजन (FIRE & Passive Income)")
     st.caption("काम किए बिना हर महीने कितना पैसा खुद आएगा? 4% ग्लोबल वेल्थ रूल:")
@@ -283,8 +311,6 @@ with tab_fire:
         st.metric("मासिक पैसिव सैलरी", f"₹{t_monthly_passive/100000:.1f} लाख/माह")
     with col_tw3:
         st.metric("प्रतिदिन पैसिव आवक", f"₹{t_daily_passive:,.0f}/दिन")
-
-    st.info("💡 **आज़ादी का नियम:** जब आपकी पैसिव इनकम आपके मासिक खर्चों से 2x हो जाती है, तो आप दुनिया के शीर्ष 1% स्वतंत्र लोगों की श्रेणी में आ जाते हैं!")
 
 # ----------------- TAB: TAX & CLEAN IN-HAND -----------------
 with tab_tax:
