@@ -181,12 +181,13 @@ conn.commit()
 TARGET = 1000000000  # 100 करोड़
 
 st.title("👑 100 Crore Wealth Hub")
-st.caption("UPI राउंड-अप चिल्लर इनवेस्टिंग, गोल्ड वैल्यूएशन व 100 करोड़ रोडमैप")
+st.caption("UPI राउंड-अप, टैक्स बफ़र, AI मेंटॉर, गोल्ड वैल्यूएशन व 100 Cr रोडमैप")
 
 # टैब्स
-tab1, tab_roundup, tab_ai, tab_wishlist, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab_blueprint, tab5 = st.tabs([
+tab1, tab_roundup, tab_tax, tab_ai, tab_wishlist, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab_blueprint, tab5 = st.tabs([
     "📊 डैशबोर्ड", 
     "🪙 UPI राउंड-अप",
+    "⚖️ टैक्स व इन-हैंड",
     "🧠 AI मेंटॉर",
     "🏎️ लग्ज़री सिमुलेटर",
     "🎮 गेम ज़ोन",
@@ -252,21 +253,39 @@ else:
     level_title = "🐺 The Lone Hustler"
     level_num = 1
 
-# ----------------- TAB: UPI ROUND-UP (POPULAR TREND) -----------------
+# ----------------- TAB: TAX & CLEAN IN-HAND (NEW & TRENDING) -----------------
+with tab_tax:
+    st.subheader("⚖️ स्मार्ट टैक्स बफ़र व असली इन-हैंड वेल्थ (Clean White Wealth)")
+    st.caption("100 करोड़ केवल कागज़ों पर नहीं, 100% साफ़ और टैक्स-मुक्त हाथ में होना चाहिए:")
+
+    col_tx1, col_tx2 = st.columns(2)
+    with col_tx1:
+        tax_bracket = st.slider("अनुमानित टैक्स बफ़र रेट (%):", min_value=0, max_value=35, value=15, step=5)
+        st.caption("टिप: बिज़नेस/ट्रेडिंग के लिए आमतौर पर 10% से 20% का बफ़र सुरक्षित रहता है।")
+    with col_tx2:
+        tax_reserve = total_gross_income * (tax_bracket / 100)
+        clean_in_hand_cash = max(total_net_cash - tax_reserve, 0.0)
+        clean_networth = max(clean_in_hand_cash + total_assets + total_receivables - total_liabilities, 0.0)
+        st.metric("टैक्स रिज़र्व फंड (अलग रखने योग्य)", f"₹{tax_reserve:,.0f}")
+
+    st.divider()
+    col_res1, col_res2 = st.columns(2)
+    with col_res1:
+        st.metric("कुल ग्रॉस नेटवर्थ", f"₹{total_networth:,.0f}")
+    with col_res2:
+        st.metric("शुद्ध टैक्स-कटी इन-हैंड नेटवर्थ 🛡️", f"₹{clean_networth:,.0f}")
+
+    st.info(f"💡 **स्मार्ट टैक्स रूल:** यदि आप अपनी कुल आय पर {tax_bracket}% टैक्स बफ़र रखते हैं, तो आपका वास्तविक लक्ष्य ग्रॉस में लगभग **₹{TARGET / (1 - (tax_bracket/100)):,.0f}** कमाने का होना चाहिए, ताकि टैक्स कटने के बाद पूरे ₹100 करोड़ हाथ में सुरक्षित रहें।")
+
+# ----------------- TAB: UPI ROUND-UP -----------------
 with tab_roundup:
     st.subheader("🪙 UPI स्पेयर-चेंज राउंड-अप और ₹10 डेली गोल्ड SIP")
-    st.caption("करोड़ों भारतीयों का पसंदीदा तरीका: ख़र्च करो और बची हुई चिल्लर से सोना खरीदो!")
-
     col_ru1, col_ru2 = st.columns(2)
     with col_ru1:
-        st.markdown("#### 🛒 ख़र्च से चिल्लर ऑटो-सेव करें")
         spend_amt = st.number_input("आज आपने कितने का UPI ख़र्च किया (₹)?", min_value=1.0, value=73.0, step=5.0)
         round_to = st.selectbox("राउंड-अप का नियम चुनें:", [10, 50, 100])
-        
-        # राउंड-अप गणित
         rounded_val = math.ceil(spend_amt / round_to) * round_to
         spare_change = rounded_val - spend_amt if rounded_val > spend_amt else round_to
-        
         st.info(f"💡 ख़र्च: ₹{spend_amt:.0f} ➔ राउंड-अप: ₹{rounded_val:.0f} ➔ **बची चिल्लर: ₹{spare_change:.0f}**")
         
         if st.button("🟡 यह चिल्लर सीधे 24K गोल्ड में जोड़ें!"):
@@ -276,12 +295,11 @@ with tab_roundup:
                            (today_str, "Gold (24K Round-up)", grams_bought, spare_change, f"UPI Round-up on ₹{spend_amt} spend"))
             conn.commit()
             st.balloons()
-            st.success(f"शानदार! ₹{spare_change:.0f} का सोना ({grams_bought:.4f} ग्राम) आपके गोल्ड एसेट में जुड़ गया!")
+            st.success(f"शानदार! ₹{spare_change:.0f} का सोना ({grams_bought:.4f} ग्राम) जुड़ गया!")
             st.rerun()
 
     with col_ru2:
-        st.markdown("#### ⚡ 1-क्लिक डेली ₹10 / ₹50 गोल्ड SIP")
-        st.write("बिना सोचे-समझे हर रोज़ सोने में छोटी बचत करें:")
+        st.markdown("#### ⚡ 1-क्लिक डेली गोल्ड SIP")
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
             if st.button("🟡 ₹10 सोना खरीदें"):
@@ -299,19 +317,6 @@ with tab_roundup:
                 conn.commit()
                 st.success("₹50 का सोना जुड़ गया!")
                 st.rerun()
-
-    st.divider()
-    st.markdown("#### 🚀 चिल्लर से 100 करोड़ का जादू (Power of Daily Micro-Savings)")
-    chillar_daily = st.slider("यदि आप रोज़ केवल इतनी चिल्लर बचाएँ (₹):", min_value=20, max_value=500, value=100, step=20)
-    chillar_annual = chillar_daily * 365
-    
-    y10 = chillar_daily * 30 * (((1 + 0.15/12)**120 - 1) / (0.15/12))
-    y20 = chillar_daily * 30 * (((1 + 0.15/12)**240 - 1) / (0.15/12))
-    y30 = chillar_daily * 30 * (((1 + 0.15/12)**360 - 1) / (0.15/12))
-    
-    st.write(f"• **10 साल बाद:** ₹{y10:,.0f} (लगभग ₹{y10/100000:.1f} लाख)")
-    st.write(f"• **20 साल बाद:** ₹{y20:,.0f} (लगभग ₹{y20/10000000:.2f} करोड़)")
-    st.write(f"• **30 साल बाद:** ₹{y30:,.0f} (लगभग **₹{y30/10000000:.2f} करोड़** सिर्फ़ चिल्लर से!)")
 
 # ----------------- TAB: AI MENTOR -----------------
 with tab_ai:
