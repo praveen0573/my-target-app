@@ -44,7 +44,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- सुरक्षा पिन (Secret PIN Protection) ---
+# --- सुरक्षा पिन ---
 SECRET_PIN = "1234"
 
 if "authenticated" not in st.session_state:
@@ -77,6 +77,16 @@ cursor.execute("""
 """)
 
 cursor.execute("""
+    CREATE TABLE IF NOT EXISTS expense_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entry_date TEXT,
+        amount REAL,
+        category TEXT,
+        note TEXT
+    )
+""")
+
+cursor.execute("""
     CREATE TABLE IF NOT EXISTS assets_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         entry_date TEXT,
@@ -90,30 +100,31 @@ conn.commit()
 
 TARGET = 1000000000  # 100 करोड़
 
-# हेडर और लॉगआउट
+# हेडर
 header_col1, header_col2 = st.columns([4, 1])
 with header_col1:
     st.title("👑 100 Crore Wealth Hub")
-    st.caption("नकद, सोना, संपत्तियां और आधिकारिक वेल्थ रिपोर्ट")
+    st.caption("कमाई, ख़र्च, संपत्तियां और 100 करोड़ का लक्ष्य")
 with header_col2:
     if st.button("लॉगआउट 🔒"):
         st.session_state["authenticated"] = False
         st.rerun()
 
-# 6 टैब्स
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+# 7 टैब्स
+tab1, tab2, tab_exp, tab3, tab4, tab5, tab6 = st.tabs([
     "📊 कुल डैशबोर्ड", 
-    "💵 नकद बचत", 
+    "💵 नकद कमाई", 
+    "💸 दैनिक ख़र्च",
     "🥇 गोल्ड व एसेट्स", 
     "🚀 100 Cr रोडमैप",
     "🔥 अनुशासन व लक्ष्य",
-    "👑 इनकम व विज़न"
+    "👑 विज़न बोर्ड"
 ])
 
 # ----------------- TAB 2: CASH INCOME -----------------
 with tab2:
     with st.form("cash_form", clear_on_submit=True):
-        st.subheader("📝 नई नकद बचत दर्ज करें")
+        st.subheader("📝 नई नकद कमाई दर्ज करें")
         col_a, col_b = st.columns(2)
         with col_a:
             entry_date = st.date_input("तारीख", value=date.today(), key="cash_date")
@@ -122,7 +133,7 @@ with tab2:
         
         col_cat1, col_cat2 = st.columns(2)
         with col_cat1:
-            income_category = st.selectbox("आय का स्रोत (Category)", [
+            income_category = st.selectbox("आय का स्रोत", [
                 "व्यापार / बिज़नेस (Business)",
                 "दैनिक बचत (Daily Savings)",
                 "ट्रेडिंग व निवेश (Trading/Investments)",
@@ -133,58 +144,62 @@ with tab2:
             custom_note = st.text_input("अतिरिक्त नोट", value="")
         
         final_note = f"[{income_category}] {custom_note}".strip()
-        submit_cash = st.form_submit_button("💾 कैश सेव करें")
+        submit_cash = st.form_submit_button("💾 कमाई सेव करें")
 
         if submit_cash and daily_income > 0:
             cursor.execute("INSERT INTO income_history (entry_date, daily_amount, note) VALUES (?, ?, ?)",
                            (str(entry_date), daily_income, final_note))
             conn.commit()
-            st.success(f"₹{daily_income:,.0f} कैश में जुड़ गए!")
+            st.success(f"₹{daily_income:,.0f} कमाई में जुड़ गए!")
             st.rerun()
 
     cash_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', daily_amount as 'रकम (₹)', note as 'विवरण' FROM income_history ORDER BY id DESC", conn)
-    
     if not cash_df.empty:
-        cash_df["Date_Obj"] = pd.to_datetime(cash_df["तारीख"])
-        cash_df["महीना"] = cash_df["Date_Obj"].dt.strftime('%B %Y')
-        
-        st.divider()
-        st.subheader("📅 महीनेवार रिपोर्ट (Monthly Analysis)")
-        
-        available_months = ["सभी महीने"] + list(cash_df["महीना"].unique())
-        selected_month = st.selectbox("महीना चुनें:", available_months)
-        
-        if selected_month == "सभी महीने":
-            filtered_cash = cash_df
-        else:
-            filtered_cash = cash_df[cash_df["महीना"] == selected_month]
-            
-        m_col1, m_col2, m_col3 = st.columns(3)
-        with m_col1:
-            st.metric("चुने महीने की कुल बचत", f"₹{filtered_cash['रकम (₹)'].sum():,.0f}")
-        with m_col2:
-            st.metric("कुल एंट्रियां", f"{len(filtered_cash)} बार")
-        with m_col3:
-            avg_val = filtered_cash['रकम (₹)'].mean() if len(filtered_cash) > 0 else 0
-            st.metric("औसत प्रति एंट्री", f"₹{avg_val:,.0f}")
-
-        st.dataframe(filtered_cash.drop(columns=["id", "Date_Obj", "महीना"]), use_container_width=True)
-        
-        csv_cash = cash_df.drop(columns=["Date_Obj", "महीना"]).to_csv(index=False).encode('utf-8')
-        st.download_button("📥 नकद डेटा डाउनलोड करें", data=csv_cash, file_name="cash_records.csv", mime="text/csv")
-        
-        with st.expander("🗑️ नकद एंट्री हटाएँ"):
+        st.dataframe(cash_df.drop(columns=["id"]), use_container_width=True)
+        csv_cash = cash_df.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 कमाई डेटा डाउनलोड करें", data=csv_cash, file_name="income_records.csv", mime="text/csv")
+        with st.expander("🗑️ कमाई एंट्री हटाएँ"):
             del_id = st.selectbox("एंट्री चुनें:", options=cash_df["id"].tolist(),
                                   format_func=lambda x: f"ID {x} - ₹{cash_df.loc[cash_df['id']==x, 'रकम (₹)'].values[0]:,.0f}")
-            if st.button("❌ कैश एंट्री मिटाएँ"):
+            if st.button("❌ कमाई मिटाएँ"):
                 cursor.execute("DELETE FROM income_history WHERE id = ?", (del_id,))
+                conn.commit()
+                st.rerun()
+
+# ----------------- TAB: EXPENSES -----------------
+with tab_exp:
+    with st.form("expense_form", clear_on_submit=True):
+        st.subheader("💸 दैनिक ख़र्च दर्ज करें")
+        col_e1, col_e2 = st.columns(2)
+        with col_e1:
+            exp_date = st.date_input("तारीख", value=date.today(), key="exp_date")
+            exp_cat = st.selectbox("ख़र्च की श्रेणी", ["ज़रूरी ख़र्च (Essentials)", "सफ़र / पेट्रोल", "खाना / राशन", "बिज़नेस ख़र्च", "मनोरंजन / फ़िज़ूलख़र्च"])
+        with col_e2:
+            exp_amt = st.number_input("ख़र्च रकम (₹ में)", min_value=0.0, step=100.0)
+            exp_note = st.text_input("ख़र्च का विवरण", value="")
+        submit_exp = st.form_submit_button("💾 ख़र्च दर्ज करें")
+
+        if submit_exp and exp_amt > 0:
+            cursor.execute("INSERT INTO expense_history (entry_date, amount, category, note) VALUES (?, ?, ?, ?)",
+                           (str(exp_date), exp_amt, exp_cat, exp_note))
+            conn.commit()
+            st.warning(f"₹{exp_amt:,.0f} ख़र्च में दर्ज हुए!")
+            st.rerun()
+
+    exp_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', amount as 'रकम (₹)', category as 'श्रेणी', note as 'विवरण' FROM expense_history ORDER BY id DESC", conn)
+    if not exp_df.empty:
+        st.dataframe(exp_df.drop(columns=["id"]), use_container_width=True)
+        with st.expander("🗑️ ख़र्च एंट्री हटाएँ"):
+            del_exp_id = st.selectbox("ख़र्च चुनें:", options=exp_df["id"].tolist(),
+                                      format_func=lambda x: f"ID {x} - ₹{exp_df.loc[exp_df['id']==x, 'रकम (₹)'].values[0]:,.0f} ({exp_df.loc[exp_df['id']==x, 'श्रेणी'].values[0]})")
+            if st.button("❌ ख़र्च मिटाएँ"):
+                cursor.execute("DELETE FROM expense_history WHERE id = ?", (del_exp_id,))
                 conn.commit()
                 st.rerun()
 
 # ----------------- TAB 3: GOLD & ASSETS -----------------
 with tab3:
-    st.subheader("🥇 गोल्ड व अन्य संपत्तियां दर्ज करें")
-    
+    st.subheader("🥇 गोल्ड व अन्य संपत्तियां")
     asset_mode = st.radio("जोड़ने का तरीका चुनें:", ["गोल्ड ऑटो-कैलकुलेटर (Gram based)", "अन्य एसेट (Manual Value)"], horizontal=True)
 
     with st.form("asset_form", clear_on_submit=True):
@@ -194,68 +209,65 @@ with tab3:
         
         if asset_mode == "गोल्ड ऑटो-कैलकुलेटर (Gram based)":
             with col2:
-                gold_purity = st.selectbox("शुद्धता", ["24K (99.9% शुद्ध सोना)", "22K (गहने/ज्वेलरी)", "चाँदी (Silver)"])
-            
+                gold_purity = st.selectbox("शुद्धता", ["24K (99.9% शुद्ध सोना)", "22K (गहने)", "चाँदी (Silver)"])
             c_g1, c_g2 = st.columns(2)
             with c_g1:
-                grams = st.number_input("सोना / चाँदी (ग्राम में):", min_value=0.1, value=10.0, step=0.5)
+                grams = st.number_input("मात्रा (ग्राम में):", min_value=0.1, value=10.0, step=0.5)
             with c_g2:
-                rate_per_gram = st.number_input("प्रति 1 ग्राम का भाव (₹ में):", min_value=100.0, value=7500.0, step=50.0)
-            
+                rate_per_gram = st.number_input("प्रति 1 ग्राम भाव (₹):", min_value=100.0, value=7500.0, step=50.0)
             calc_val = grams * rate_per_gram
-            st.info(f"💡 कुल अनुमानित वैल्यू: **₹{calc_val:,.0f}**")
+            st.info(f"💡 अनुमानित वैल्यू: **₹{calc_val:,.0f}**")
             asset_type = f"Gold ({gold_purity})" if "2" in gold_purity else "Silver"
             final_val = calc_val
             final_qty = grams
-            asset_note = st.text_input("विवरण / नोट:", value=f"{grams}g सोना @ ₹{rate_per_gram}/g")
+            asset_note = st.text_input("विवरण:", value=f"{grams}g @ ₹{rate_per_gram}/g")
         else:
             with col2:
-                asset_type = st.selectbox("एसेट का प्रकार", ["ज़मीन / प्लॉट", "मकान / फ्लैट", "शेयर / म्यूचुअल फंड", "अन्य संपत्ति"])
-            
+                asset_type = st.selectbox("एसेट प्रकार", ["ज़मीन / प्लॉट", "मकान / फ्लैट", "शेयर / म्यूचुअल फंड", "अन्य संपत्ति"])
             c_m1, c_m2 = st.columns(2)
             with c_m1:
-                final_val = st.number_input("कुल मौजूदा वैल्यू (₹ में):", min_value=1000.0, step=5000.0)
+                final_val = st.number_input("कुल वैल्यू (₹):", min_value=1000.0, step=5000.0)
             with c_m2:
-                final_qty = st.number_input("मात्रा (Units / Sq.Ft / Qty):", min_value=1.0, value=1.0, step=1.0)
+                final_qty = st.number_input("मात्रा:", min_value=1.0, value=1.0, step=1.0)
             asset_note = st.text_input("विवरण:", value="दीर्घकालिक संपत्ति")
 
-        submit_asset = st.form_submit_button("💾 एसेट डेटाबेस में जोड़ें")
-
+        submit_asset = st.form_submit_button("💾 एसेट सेव करें")
         if submit_asset and final_val > 0:
             cursor.execute("INSERT INTO assets_history (entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, ?, ?, ?)",
                            (str(asset_date), asset_type, final_qty, final_val, asset_note))
             conn.commit()
-            st.success("एसेट सफलतापूर्वक जुड़ गया!")
+            st.success("एसेट जुड़ गया!")
             st.rerun()
 
-    asset_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', asset_type as 'प्रकार', quantity as 'मात्रा/ग्राम', current_value as 'वैल्यू (₹)', note as 'विवरण' FROM assets_history ORDER BY id DESC", conn)
+    asset_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', asset_type as 'प्रकार', quantity as 'मात्रा', current_value as 'वैल्यू (₹)', note as 'विवरण' FROM assets_history ORDER BY id DESC", conn)
     if not asset_df.empty:
         st.dataframe(asset_df.drop(columns=["id"]), use_container_width=True)
-        csv_asset = asset_df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 एसेट डेटा डाउनलोड करें", data=csv_asset, file_name="asset_records.csv", mime="text/csv")
-        
         with st.expander("🗑️ एसेट एंट्री हटाएँ"):
             del_asset_id = st.selectbox("एसेट चुनें:", options=asset_df["id"].tolist(),
                                         format_func=lambda x: f"ID {x} - {asset_df.loc[asset_df['id']==x, 'प्रकार'].values[0]} (₹{asset_df.loc[asset_df['id']==x, 'वैल्यू (₹)'].values[0]:,.0f})")
-            if st.button("❌ चुनी हुई एसेट मिटाएँ"):
+            if st.button("❌ एसेट मिटाएँ"):
                 cursor.execute("DELETE FROM assets_history WHERE id = ?", (del_asset_id,))
                 conn.commit()
                 st.rerun()
 
-# कुल आंकड़े
-total_cash = cash_df["रकम (₹)"].sum() if not cash_df.empty else 0.0
+# गणनाएँ
+total_gross_income = cash_df["रकम (₹)"].sum() if not cash_df.empty else 0.0
+total_expenses = exp_df["रकम (₹)"].sum() if not exp_df.empty else 0.0
+total_net_cash = max(total_gross_income - total_expenses, 0.0)
 total_assets = asset_df["वैल्यू (₹)"].sum() if not asset_df.empty else 0.0
-total_networth = total_cash + total_assets
+total_networth = total_net_cash + total_assets
 
-# ----------------- TAB 1: TOTAL DASHBOARD & PDF GENERATOR -----------------
+# ----------------- TAB 1: TOTAL DASHBOARD -----------------
 with tab1:
-    col_m1, col_m2, col_m3 = st.columns(3)
+    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
     with col_m1:
-        st.metric("कुल नकद बचत", f"₹{total_cash:,.0f}")
+        st.metric("कुल कमाई", f"₹{total_gross_income:,.0f}")
     with col_m2:
-        st.metric("कुल एसेट्स / गोल्ड", f"₹{total_assets:,.0f}")
+        st.metric("कुल ख़र्च", f"₹{total_expenses:,.0f}")
     with col_m3:
-        st.metric("कुल नेटवर्थ", f"₹{total_networth:,.0f}")
+        st.metric("शुद्ध नकद बचत", f"₹{total_net_cash:,.0f}")
+    with col_m4:
+        st.metric("कुल नेटवर्थ 👑", f"₹{total_networth:,.0f}")
 
     progress_val = min(total_networth / TARGET, 1.0)
     st.write(f"### 🎯 100 करोड़ के लक्ष्य का सफर: `{progress_val * 100:.6f}%`")
@@ -264,121 +276,65 @@ with tab1:
 
     if total_networth > 0:
         st.write("### 🍰 संपत्ति का बँटवारा (Asset Allocation)")
-        chart_summary = pd.DataFrame({"राशि (₹)": [total_cash, total_assets]}, index=["नकद बचत", "गोल्ड व एसेट्स"])
+        chart_summary = pd.DataFrame({"राशि (₹)": [total_net_cash, total_assets]}, index=["शुद्ध नकद", "गोल्ड व एसेट्स"])
         st.bar_chart(chart_summary)
 
     # 100 करोड़ स्पीड मीटर
     st.divider()
-    st.subheader("⚡ 100 करोड़ स्पीड व समय कैलकुलेटर")
+    st.subheader("⚡ 100 करोड़ स्पीड मीटर")
     daily_avg = cash_df["रकम (₹)"].mean() if not cash_df.empty else 0.0
-    
     col_v1, col_v2 = st.columns(2)
     with col_v1:
-        st.write(f"**आपकी औसत दैनिक बचत:** ₹{daily_avg:,.0f}/दिन")
+        st.write(f"**औसत दैनिक कमाई:** ₹{daily_avg:,.0f}/दिन")
         if daily_avg > 0:
-            days_needed = (TARGET - total_networth) / daily_avg
-            years_needed = days_needed / 365
+            years_needed = ((TARGET - total_networth) / daily_avg) / 365
             st.write(f"वर्तमान गति से समय लगेगा: **{years_needed:.1f} वर्ष**")
         else:
             st.write("वर्तमान गति से समय लगेगा: -- वर्ष")
-    
     with col_v2:
-        target_years = st.selectbox("यदि आप 100 करोड़ पाना चाहते हैं:", [10, 15, 20, 25, 30], index=1)
-        required_per_month = (TARGET - total_networth) / (target_years * 12)
-        required_per_day = required_per_month / 30
-        st.write(f"**{target_years} साल का लक्ष्य पाने के लिए:**")
-        st.write(f"रोज़ाना चाहिए: **₹{required_per_day:,.0f}/दिन**")
-        st.write(f"मासिक चाहिए: **₹{required_per_month:,.0f}/महीना**")
+        target_years = st.selectbox("100 करोड़ पाने का लक्ष्य समय:", [10, 15, 20, 25, 30], index=1)
+        req_month = (TARGET - total_networth) / (target_years * 12)
+        st.write(f"**{target_years} साल में 100 करोड़ के लिए:**")
+        st.write(f"मासिक शुद्ध बचत चाहिए: **₹{req_month:,.0f}/महीना**")
 
-    # --- PDF रिपोर्ट जनरेटर फ़ंक्शन ---
+    # PDF डाउनलोड
     st.divider()
-    st.subheader("📄 आधिकारिक वेल्थ ऑडिट रिपोर्ट (Download PDF)")
-    st.caption("अपनी पूरी वित्तीय स्थिति और 100 करोड़ प्रोग्रेस की प्रोफ़ेशनल PDF फ़ाइल डाउनलोड करें।")
-
     def generate_wealth_pdf():
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
         elements = []
         styles = getSampleStyleSheet()
-
-        title_style = ParagraphStyle(
-            name='TitleStyle',
-            parent=styles['Heading1'],
-            fontSize=22,
-            textColor=colors.HexColor("#1a202c"),
-            alignment=1,
-            spaceAfter=15
-        )
-        subtitle_style = ParagraphStyle(
-            name='SubTitleStyle',
-            parent=styles['Normal'],
-            fontSize=10,
-            textColor=colors.HexColor("#718096"),
-            alignment=1,
-            spaceAfter=25
-        )
-
-        elements.append(Paragraph("100 CRORE TARGET - OFFICIAL WEALTH AUDIT", title_style))
-        elements.append(Paragraph(f"Generated on: {date.today().strftime('%d %B %Y')} | Confidential Portfolio Report", subtitle_style))
-
-        # समरी टेबल
+        elements.append(Paragraph("100 CRORE TARGET - OFFICIAL WEALTH AUDIT", styles['Heading1']))
+        elements.append(Paragraph(f"Date: {date.today().strftime('%d %B %Y')} | Confidential", styles['Normal']))
+        elements.append(Spacer(1, 15))
         summary_data = [
-            ["Financial Metric", "Amount (INR)", "Status / Ratio"],
-            ["Total Networth", f"Rs. {total_networth:,.0f}", f"{(total_networth/TARGET)*100:.6f}% of Target"],
-            ["Total Liquid Cash", f"Rs. {total_cash:,.0f}", f"{(total_cash/total_networth*100) if total_networth>0 else 0:.1f}% Allocation"],
-            ["Total Assets & Gold", f"Rs. {total_assets:,.0f}", f"{(total_assets/total_networth*100) if total_networth>0 else 0:.1f}% Allocation"],
-            ["Target Gap (Remaining)", f"Rs. {TARGET - total_networth:,.0f}", "Target: Rs. 100 Crore"]
+            ["Financial Metric", "Amount (INR)", "Status"],
+            ["Total Networth", f"Rs. {total_networth:,.0f}", f"{(total_networth/TARGET)*100:.6f}%"],
+            ["Total Income", f"Rs. {total_gross_income:,.0f}", "Gross Earnings"],
+            ["Total Expenses", f"Rs. {total_expenses:,.0f}", "Outflow"],
+            ["Net Liquid Cash", f"Rs. {total_net_cash:,.0f}", "In Hand"],
+            ["Total Assets & Gold", f"Rs. {total_assets:,.0f}", "Valuation"]
         ]
         t = Table(summary_data, colWidths=[200, 170, 170])
         t.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#2d3748")),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-            ('TOPPADDING', (0, 0), (-1, -1), 8),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e0")),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor("#f7fafc"), colors.white])
+            ('FONTSIZE', (0, 0), (-1, -1), 10)
         ]))
         elements.append(t)
-        elements.append(Spacer(1, 20))
-
-        # हालिया रिकॉर्ड्स
-        elements.append(Paragraph("Recent Cash Transactions (Last 5 Entries)", styles['Heading2']))
-        elements.append(Spacer(1, 8))
-
-        recent_cash = cash_df.head(5) if not cash_df.empty else pd.DataFrame()
-        if not recent_cash.empty:
-            rec_data = [["Date", "Amount (INR)", "Description / Stream"]]
-            for _, r_item in recent_cash.iterrows():
-                rec_data.append([str(r_item["तारीख"]), f"Rs. {r_item['रकम (₹)']:,.0f}", str(r_item["विवरण"])])
-            t_rec = Table(rec_data, colWidths=[100, 140, 300])
-            t_rec.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#4a5568")),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e0")),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-                ('TOPPADDING', (0, 0), (-1, -1), 6)
-            ]))
-            elements.append(t_rec)
-        else:
-            elements.append(Paragraph("No cash entries recorded yet.", styles['Normal']))
-
         doc.build(elements)
         buffer.seek(0)
         return buffer
 
-    pdf_file = generate_wealth_pdf()
     st.download_button(
         label="📥 वेल्थ ऑडिट PDF डाउनलोड करें",
-        data=pdf_file,
-        file_name=f"100_Crore_Wealth_Report_{date.today()}.pdf",
+        data=generate_wealth_pdf(),
+        file_name=f"Wealth_Report_{date.today()}.pdf",
         mime="application/pdf"
     )
 
-# ----------------- TAB 4: ROADMAP & COMPOUNDING -----------------
+# ----------------- TAB 4: ROADMAP -----------------
 with tab4:
     st.subheader("🪜 माइलस्टोन लेडर (Wealth Milestones)")
     milestones = [
@@ -390,7 +346,6 @@ with tab4:
         ("छठा पड़ाव: 50 करोड़", 500000000),
         ("अंतिम लक्ष्य: 100 करोड़ 👑", 1000000000),
     ]
-
     for name, target_amt in milestones:
         if total_networth >= target_amt:
             st.success(f"✅ **{name}** — पूर्ण! (₹{target_amt:,.0f})")
@@ -400,46 +355,27 @@ with tab4:
             st.warning(f"⏳ **{name}** — `{pct:.2f}%` पूरा (अभी ₹{diff:,.0f} बाकी)")
 
     st.divider()
-    st.subheader("⚡ कम्पाउंडिंग ग्रोथ सिमुलेटर (Power of Compounding)")
+    st.subheader("⚡ कम्पाउंडिंग सिमुलेटर")
     col_s1, col_s2 = st.columns(2)
     with col_s1:
-        monthly_invest = st.number_input("हर महीने का निवेश / बचत (₹):", min_value=1000, value=25000, step=5000)
+        monthly_invest = st.number_input("मासिक निवेश (₹):", min_value=1000, value=25000, step=5000)
     with col_s2:
-        annual_rate = st.slider("अनुमानित सालाना रिटर्न (% में):", min_value=8.0, max_value=25.0, value=15.0, step=0.5)
+        annual_rate = st.slider("सालाना रिटर्न (%):", min_value=8.0, max_value=25.0, value=15.0, step=0.5)
 
     years_list = list(range(1, 31))
     future_values = []
     r = (annual_rate / 100) / 12
-
     for yr in years_list:
         n = yr * 12
         fv = monthly_invest * (((1 + r)**n - 1) / r) * (1 + r) + (total_networth * ((1 + annual_rate/100)**yr))
         future_values.append(round(fv))
+    st.line_chart(pd.DataFrame({"अनुमानित नेटवर्थ (₹)": future_values}, index=[f"वर्ष {y}" for y in years_list]))
 
-    sim_df = pd.DataFrame({"अनुमानित नेटवर्थ (₹)": future_values}, index=[f"वर्ष {y}" for y in years_list])
-    
-    st.write(f"📈 अगले 30 सालों में कम्पाउंडिंग का ग्राफ़ ({annual_rate}% सालाना रिटर्न पर):")
-    st.line_chart(sim_df)
-
-    reach_year = None
-    for yr, val in zip(years_list, future_values):
-        if val >= TARGET:
-            reach_year = yr
-            break
-
-    if reach_year:
-        st.success(f"🎯 इस रफ़्तार और कम्पाउंडिंग के साथ आप **{reach_year}वें साल** में ₹100 करोड़ पार कर जाएँगे!")
-    else:
-        st.info("💡 100 करोड़ और तेज़ी से पाने के लिए अपनी मासिक बचत या बिज़नेस कैशफ़्लो को बढ़ाएँ।")
-
-# ----------------- TAB 5: DISCIPLINE & DAILY TARGET -----------------
+# ----------------- TAB 5: DISCIPLINE -----------------
 with tab5:
-    st.subheader("🔥 दैनिक अनुशासन व स्ट्राइक (Daily Streak & Target)")
-    
+    st.subheader("🔥 दैनिक अनुशासन व स्ट्राइक")
     quotes = [
         "\"अमीर बनने की शुरुआत बड़े सपनों से नहीं, रोज़ के छोटे अनुशासन से होती है।\"",
-        "\"जो व्यक्ति छोटे-छोटे रुपयों की कद्र नहीं करता, वह 100 करोड़ कभी नहीं संभाल सकता।\"",
-        "\"कम्पाउंडिंग दुनिया का आठवाँ अजूबा है—जो इसे समझता है वह कमाता है।\"",
         "\"वित्तीय अनुशासन आज की कुर्बानी और कल की आज़ादी का सौदा है।\""
     ]
     st.info(f"💡 {random.choice(quotes)}")
@@ -452,74 +388,18 @@ with tab5:
 
     col_d1, col_d2 = st.columns(2)
     with col_d1:
-        daily_target = st.number_input("आज का बचत लक्ष्य (₹):", min_value=500, value=2000, step=500)
+        daily_target = st.number_input("दैनिक लक्ष्य (₹):", min_value=500, value=2000, step=500)
     with col_d2:
-        st.metric("आज की कुल बचत", f"₹{today_savings:,.0f}")
+        st.metric("आज की कमाई", f"₹{today_savings:,.0f}")
 
     daily_prog = min(today_savings / daily_target, 1.0)
-    st.write(f"**आज का दैनिक लक्ष्य पूरा हुआ:** `{daily_prog * 100:.1f}%`")
     st.progress(daily_prog)
 
-    if today_savings >= daily_target:
-        st.success("🎯 आज का दैनिक अनुशासन लक्ष्य पूरा हुआ! निरंतरता ही सफलता की कुंजी है।")
-    else:
-        st.warning(f"⏳ आज के लक्ष्य से अभी ₹{daily_target - today_savings:,.0f} दूर हैं।")
-
-    unique_dates = sorted(cash_df["तारीख"].unique().tolist(), reverse=True) if not cash_df.empty else []
-    streak = 0
-    check_day = date.today()
-    
-    if today_str not in unique_dates:
-        check_day = date.today() - timedelta(days=1)
-
-    while str(check_day) in unique_dates:
-        streak += 1
-        check_day = check_day - timedelta(days=1)
-
-    st.divider()
-    s_col1, s_col2 = st.columns(2)
-    with s_col1:
-        st.metric("वर्तमान स्ट्राइक (Streak)", f"🔥 {streak} दिन")
-    with s_col2:
-        st.metric("कुल सक्रिय दिन", f"📅 {len(unique_dates)} दिन")
-
-# ----------------- TAB 6: INCOME STREAMS & VISION -----------------
+# ----------------- TAB 6: VISION -----------------
 with tab6:
-    st.subheader("👑 आय के स्रोत (Income Streams Breakdown)")
-    
-    if not cash_df.empty:
-        def extract_cat(val):
-            if "[" in str(val) and "]" in str(val):
-                return str(val).split("]")[0].replace("[", "").strip()
-            return "अन्य स्रोत"
-
-        cash_df["Category"] = cash_df["विवरण"].apply(extract_cat)
-        cat_summary = cash_df.groupby("Category")["रकम (₹)"].sum().reset_index()
-        
-        st.write("📊 किस स्रोत से कितना धन आया:")
-        chart_cat = cat_summary.set_index("Category")
-        st.bar_chart(chart_cat)
-        st.dataframe(cat_summary, use_container_width=True)
-    else:
-        st.info("जैसे-जैसे आप नकद बचत जोड़ेंगे, आय स्रोतों का विश्लेषण यहाँ दिखेगा।")
-
-    st.divider()
-    st.subheader("🎯 100 करोड़ एलीट माइंडसेट रूल्स (Rules of Elite Wealth)")
-    
-    col_v1, col_v2 = st.columns(2)
-    with col_v1:
-        st.markdown("""
-        **1. एसेट्स पर फ़ोकस:**
-        * कभी सिर्फ़ पैसे जमा मत करो; उसे ऐसे एसेट्स (सोना, प्रॉपर्टी, बिज़नेस) में बदलो जो अपने आप बढ़ें।
-        
-        **2. कैशफ़्लो का विस्तार:**
-        * कभी भी सिर्फ़ एक इनकम पर निर्भर न रहें। नए स्किल्स और बिज़नेस से आय के नए रास्ते खोलें।
-        """)
-    with col_v2:
-        st.markdown("""
-        **3. सख्त वित्तीय अनुशासन:**
-        * दिखावे वाले खर्च शून्य, निवेश शत-प्रतिशत। 
-        
-        **4. दीर्घकालिक दृष्टि:**
-        * 100 करोड़ का लक्ष्य रातों-रात का लॉटरी टिकट नहीं, बल्कि वर्षों का अटूट संकल्प है।
-        """)
+    st.subheader("👑 100 करोड़ एलीट माइंडसेट")
+    st.markdown("""
+    * **खर्चों पर नियंत्रण:** कमाई जितनी भी बढ़े, जीवनशैली का दिखावा न बढ़ाएँ।
+    * **नकद से संपत्ति:** बची हुई नकदी को सोने, ज़मीन या बढ़ते बिज़नेस में लगाते रहें।
+    * **कम्पाउंडिंग का धैर्य:** 100 करोड़ की यात्रा समय और निरंतरता माँगती है।
+    """)
