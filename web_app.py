@@ -164,14 +164,15 @@ conn.commit()
 TARGET = 1000000000  # 100 करोड़
 
 st.title("👑 100 Crore Wealth Hub")
-st.caption("लाइव गोल्ड वैल्यूएशन, नकद कमाई, संपत्तियां और कर्ज़ प्रबंधक")
+st.caption("लाइव गोल्ड वैल्यूएशन, वित्तीय स्कोर, संपत्तियां व 100 करोड़ रोडमैप")
 
 # टैब्स
-tab1, tab2, tab_exp, tab_debt, tab_analytics, tab3, tab4, tab_blueprint, tab5 = st.tabs([
+tab1, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab_blueprint, tab5 = st.tabs([
     "📊 डैशबोर्ड", 
     "💵 कमाई", 
     "💸 ख़र्च",
     "⚖️ कर्ज़ / उधारी",
+    "🩺 वेल्थ स्कोर",
     "📈 बचत दर", 
     "🥇 गोल्ड व संपत्तियां", 
     "🚀 100 Cr रोडमैप",
@@ -283,32 +284,11 @@ with tab_debt:
                 conn.commit()
                 st.rerun()
 
-# ----------------- TAB: ANALYTICS & BUDGET -----------------
-with tab_analytics:
-    st.subheader("📈 बचत दर विश्लेषण (Savings Rate)")
-    total_inc = cash_df["रकम (₹)"].sum() if not cash_df.empty else 0.0
-    total_exp = exp_df["रकम (₹)"].sum() if not exp_df.empty else 0.0
-    savings_rate = ((total_inc - total_exp) / total_inc * 100) if total_inc > 0 else 0.0
-
-    col_an1, col_an2, col_an3 = st.columns(3)
-    with col_an1:
-        st.metric("कुल कमाई", f"₹{total_inc:,.0f}")
-    with col_an2:
-        st.metric("कुल ख़र्च", f"₹{total_exp:,.0f}")
-    with col_an3:
-        st.metric("बचत दर", f"{savings_rate:.1f}%")
-
-    comp_df = pd.DataFrame({
-        "रकम (₹)": [total_inc, total_exp, max(total_inc - total_exp, 0.0)]
-    }, index=["कमाई", "ख़र्च", "शुद्ध बचत"])
-    st.bar_chart(comp_df)
-
 # ----------------- TAB 3: GOLD & ASSETS -----------------
 with tab3:
     st.subheader("🥇 गोल्ड व वास्तविक संपत्तियां")
     
-    # लाइव गोल्ड भाव क्विक प्रीसेट
-    st.markdown("#### ⚡ लाइव मार्केट गोल्ड रेट्स (अनुमानित भाव)")
+    st.markdown("#### ⚡ लाइव मार्केट गोल्ड रेट्स")
     col_gr1, col_gr2, col_gr3 = st.columns(3)
     with col_gr1:
         st.info("🟡 24K गोल्ड: **₹7,650 / ग्राम**")
@@ -329,7 +309,6 @@ with tab3:
                 gold_purity = st.selectbox("शुद्धता", ["24K (99.9% शुद्ध सोना)", "22K (गहने/ज्वेलरी)", "चाँदी (Silver)"])
             
             default_rate = 7650.0 if "24" in gold_purity else (7050.0 if "22" in gold_purity else 92.0)
-            
             c_g1, c_g2 = st.columns(2)
             with c_g1:
                 grams = st.number_input("मात्रा (ग्राम में):", min_value=0.1, value=10.0, step=0.5)
@@ -337,7 +316,7 @@ with tab3:
                 rate_per_gram = st.number_input("भाव प्रति ग्राम (₹):", min_value=50.0, value=default_rate, step=50.0)
             
             calc_val = grams * rate_per_gram
-            st.write(f"💡 अनुमानित कुल मूल्य: **₹{calc_val:,.0f}**")
+            st.write(f"💡 कुल मूल्य: **₹{calc_val:,.0f}**")
             asset_type = f"Gold ({gold_purity})" if "2" in gold_purity else "Silver"
             final_val = calc_val
             final_qty = grams
@@ -357,7 +336,7 @@ with tab3:
             cursor.execute("INSERT INTO assets_history (entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, ?, ?, ?)",
                            (str(asset_date), asset_type, final_qty, final_val, asset_note))
             conn.commit()
-            st.success("एसेट सफलतापूर्वक जुड़ गया!")
+            st.success("एसेट जुड़ गया!")
             st.rerun()
 
     asset_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', asset_type as 'प्रकार', quantity as 'मात्रा', current_value as 'मूल्य (₹)', note as 'विवरण' FROM assets_history ORDER BY id DESC", conn)
@@ -386,6 +365,80 @@ if not debt_df.empty:
     total_receivables = rec_rows["रकम (₹)"].sum()
 
 total_networth = max(total_net_cash + total_assets + total_receivables - total_liabilities, 0.0)
+savings_rate = ((total_gross_income - total_expenses) / total_gross_income * 100) if total_gross_income > 0 else 0.0
+
+# ----------------- TAB: HEALTH SCORE -----------------
+with tab_health:
+    st.subheader("🩺 फाइनेंशियल हेल्थ स्कोर (Financial Health Audit)")
+    
+    # स्कोर गणना
+    score = 0
+    # 1. बचत दर स्कोर (अधिकतम 35)
+    if savings_rate >= 60:
+        score += 35
+    elif savings_rate >= 40:
+        score += 25
+    elif savings_rate > 0:
+        score += 15
+
+    # 2. कर्ज़ नियंत्रण (अधिकतम 30)
+    if total_liabilities == 0 and total_networth > 0:
+        score += 30
+    elif total_liabilities < (total_networth * 0.2):
+        score += 20
+    else:
+        score += 5
+
+    # 3. एसेट विविधता (अधिकतम 20)
+    if total_assets > 0 and total_net_cash > 0:
+        score += 20
+    elif total_assets > 0 or total_net_cash > 0:
+        score += 10
+
+    # 4. डेटा निरंतरता (अधिकतम 15)
+    if len(cash_df) >= 5:
+        score += 15
+    elif len(cash_df) > 0:
+        score += 8
+
+    col_sc1, col_sc2 = st.columns([1, 2])
+    with col_sc1:
+        st.metric("वेल्थ स्कोर", f"{score} / 100")
+    with col_sc2:
+        st.progress(score / 100)
+        if score >= 80:
+            st.success("🌟 एलीट स्टेटस: आपकी वित्तीय रणनीति 100 करोड़ के लक्ष्य के बिल्कुल सटीक रास्ते पर है!")
+        elif score >= 50:
+            st.warning("⚡ अच्छा स्तर: बचत दर और एसेट एलोकेशन को थोड़ा और आक्रामक बनाने की आवश्यकता है।")
+        else:
+            st.error("⚠️ सुधार की आवश्यकता: खर्चों को कम करें और नियमित बचत अनुशासन बनाएँ।")
+
+    st.divider()
+    st.markdown("#### 💡 स्मार्ट वेल्थ एडवाइजर सुझाव:")
+    if savings_rate < 50:
+        st.write("• **बचत दर बढ़ाएँ:** अपनी आय का कम से कम 50% बचाने का प्रयास करें।")
+    if total_liabilities > 0:
+        st.write("• **कर्ज़ मुक्ति:** सबसे पहले उच्च ब्याज वाले कर्ज़ को समाप्त करें।")
+    if total_assets == 0:
+        st.write("• **गोल्ड में एलोकेशन:** नकदी को सुरक्षित रखने के लिए नियमित रूप से 24K गोल्ड में बदलें।")
+    if total_assets > 0 and savings_rate >= 50 and total_liabilities == 0:
+        st.write("• **स्पीड अप:** अब नए बिज़नेस और हाई-कैशफ़्लो प्रोजेक्ट्स पर पूरा ध्यान केंद्रित करें!")
+
+# ----------------- TAB: ANALYTICS & BUDGET -----------------
+with tab_analytics:
+    st.subheader("📈 बचत दर विश्लेषण (Savings Rate)")
+    col_an1, col_an2, col_an3 = st.columns(3)
+    with col_an1:
+        st.metric("कुल कमाई", f"₹{total_gross_income:,.0f}")
+    with col_an2:
+        st.metric("कुल ख़र्च", f"₹{total_expenses:,.0f}")
+    with col_an3:
+        st.metric("बचत दर", f"{savings_rate:.1f}%")
+
+    comp_df = pd.DataFrame({
+        "रकम (₹)": [total_gross_income, total_expenses, max(total_gross_income - total_expenses, 0.0)]
+    }, index=["कमाई", "ख़र्च", "शुद्ध बचत"])
+    st.bar_chart(comp_df)
 
 # ----------------- TAB 1: TOTAL DASHBOARD -----------------
 with tab1:
@@ -444,7 +497,7 @@ with tab1:
             ["Net Liquid Cash", f"Rs. {total_net_cash:,.0f}", "In Hand"],
             ["Total Assets & Gold", f"Rs. {total_assets:,.0f}", "Valuation"],
             ["Total Liabilities", f"Rs. {total_liabilities:,.0f}", "Debt"],
-            ["Target Remaining", f"Rs. {TARGET - total_networth:,.0f}", "Goal: 100 Crore"]
+            ["Health Score", f"{score} / 100", "Audited"]
         ]
         t = Table(summary_data, colWidths=[200, 170, 170])
         t.setStyle(TableStyle([
