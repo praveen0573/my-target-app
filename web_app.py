@@ -56,14 +56,19 @@ TARGET = 1000000000  # 100 करोड़
 header_col1, header_col2 = st.columns([4, 1])
 with header_col1:
     st.title("👑 100 Crore Wealth Hub")
-    st.caption("नकद, सोना और संपत्तियों का सुरक्षित डैशबोर्ड")
+    st.caption("नकद, सोना, संपत्तियां और कम्पाउंडिंग रोडमैप")
 with header_col2:
     if st.button("लॉगआउट 🔒"):
         st.session_state["authenticated"] = False
         st.rerun()
 
 # टैब्स
-tab1, tab2, tab3 = st.tabs(["📊 कुल नेटवर्थ (Dashboard)", "💵 नकद बचत (Cash)", "🥇 गोल्ड और एसेट्स (Assets)"])
+tab1, tab2, tab3, tab4 = st.tabs([
+    "📊 कुल डैशबोर्ड", 
+    "💵 नकद बचत (Cash)", 
+    "🥇 गोल्ड व एसेट्स", 
+    "🚀 100 Cr रोडमैप"
+])
 
 # ----------------- TAB 2: CASH INCOME -----------------
 with tab2:
@@ -87,10 +92,8 @@ with tab2:
     cash_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', daily_amount as 'रकम (₹)', note as 'विवरण' FROM income_history ORDER BY id DESC", conn)
     if not cash_df.empty:
         st.dataframe(cash_df.drop(columns=["id"]), use_container_width=True)
-        
-        # बैकअप डाउनलोड बटन
         csv_cash = cash_df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 नकद डेटा एक्सेल/CSV डाउनलोड करें", data=csv_cash, file_name="cash_records.csv", mime="text/csv")
+        st.download_button("📥 नकद डेटा डाउनलोड करें", data=csv_cash, file_name="cash_records.csv", mime="text/csv")
         
         with st.expander("🗑️ नकद एंट्री हटाएँ"):
             del_id = st.selectbox("एंट्री चुनें:", options=cash_df["id"].tolist(),
@@ -124,10 +127,8 @@ with tab3:
     asset_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', asset_type as 'प्रकार', quantity as 'मात्रा', current_value as 'वैल्यू (₹)', note as 'विवरण' FROM assets_history ORDER BY id DESC", conn)
     if not asset_df.empty:
         st.dataframe(asset_df.drop(columns=["id"]), use_container_width=True)
-        
-        # बैकअप डाउनलोड बटन
         csv_asset = asset_df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 एसेट डेटा एक्सेल/CSV डाउनलोड करें", data=csv_asset, file_name="asset_records.csv", mime="text/csv")
+        st.download_button("📥 एसेट डेटा डाउनलोड करें", data=csv_asset, file_name="asset_records.csv", mime="text/csv")
         
         with st.expander("🗑️ एसेट एंट्री हटाएँ"):
             del_asset_id = st.selectbox("एसेट चुनें:", options=asset_df["id"].tolist(),
@@ -137,12 +138,13 @@ with tab3:
                 conn.commit()
                 st.rerun()
 
+# कुल आंकड़े
+total_cash = cash_df["रकम (₹)"].sum() if not cash_df.empty else 0.0
+total_assets = asset_df["वैल्यू (₹)"].sum() if not asset_df.empty else 0.0
+total_networth = total_cash + total_assets
+
 # ----------------- TAB 1: TOTAL DASHBOARD -----------------
 with tab1:
-    total_cash = cash_df["रकम (₹)"].sum() if not cash_df.empty else 0.0
-    total_assets = asset_df["वैल्यू (₹)"].sum() if not asset_df.empty else 0.0
-    total_networth = total_cash + total_assets
-
     col_m1, col_m2, col_m3 = st.columns(3)
     with col_m1:
         st.metric("कुल नकद बचत", f"₹{total_cash:,.0f}")
@@ -160,3 +162,60 @@ with tab1:
         st.write("### 🍰 संपत्ति का बँटवारा (Asset Allocation)")
         chart_summary = pd.DataFrame({"राशि (₹)": [total_cash, total_assets]}, index=["नकद बचत", "गोल्ड व एसेट्स"])
         st.bar_chart(chart_summary)
+
+# ----------------- TAB 4: ROADMAP & COMPOUNDING -----------------
+with tab4:
+    st.subheader("🪜 माइलस्टोन लेडर (Wealth Milestones)")
+    milestones = [
+        ("पहला पड़ाव: 10 लाख", 1000000),
+        ("दूसरा पड़ाव: 50 लाख", 5000000),
+        ("तीसरा पड़ाव: 1 करोड़", 10000000),
+        ("चौथा पड़ाव: 5 करोड़", 50000000),
+        ("पाँचवाँ पड़ाव: 10 करोड़", 100000000),
+        ("छठा पड़ाव: 50 करोड़", 500000000),
+        ("अंतिम लक्ष्य: 100 करोड़ 👑", 1000000000),
+    ]
+
+    for name, target_amt in milestones:
+        if total_networth >= target_amt:
+            st.success(f"✅ **{name}** — पूर्ण! (₹{target_amt:,.0f})")
+        else:
+            diff = target_amt - total_networth
+            pct = min((total_networth / target_amt) * 100, 100.0)
+            st.warning(f"⏳ **{name}** — `{pct:.2f}%` पूरा (अभी ₹{diff:,.0f} बाकी)")
+
+    st.divider()
+    st.subheader("⚡ कम्पाउंडिंग ग्रोथ सिमुलेटर (Power of Compounding)")
+    col_s1, col_s2 = st.columns(2)
+    with col_s1:
+        monthly_invest = st.number_input("हर महीने का निवेश / बचत (₹):", min_value=1000, value=25000, step=5000)
+    with col_s2:
+        annual_rate = st.slider("अनुमानित सालाना रिटर्न (% में):", min_value=8.0, max_value=25.0, value=15.0, step=0.5)
+
+    # 30 साल का कम्पाउंडिंग प्रोजेक्शन
+    years_list = list(range(1, 31))
+    future_values = []
+    r = (annual_rate / 100) / 12
+
+    for yr in years_list:
+        n = yr * 12
+        # Future value of SIP formula: P * [((1 + r)^n - 1) / r] * (1 + r)
+        fv = monthly_invest * (((1 + r)**n - 1) / r) * (1 + r) + (total_networth * ((1 + annual_rate/100)**yr))
+        future_values.append(round(fv))
+
+    sim_df = pd.DataFrame({"अनुमानित नेटवर्थ (₹)": future_values}, index=[f"वर्ष {y}" for y in years_list])
+    
+    st.write(f"📈 अगले 30 सालों में कम्पाउंडिंग का ग्राफ़ ({annual_rate}% सालाना रिटर्न पर):")
+    st.line_chart(sim_df)
+
+    # 100 करोड़ कब छुएगा
+    reach_year = None
+    for yr, val in zip(years_list, future_values):
+        if val >= TARGET:
+            reach_year = yr
+            break
+
+    if reach_year:
+        st.success(f"🎯 इस रफ़्तार और कम्पाउंडिंग के साथ आप **{reach_year}वें साल** में ₹100 करोड़ पार कर जाएँगे!")
+    else:
+        st.info("💡 100 करोड़ और तेज़ी से पाने के लिए अपनी मासिक बचत या बिज़नेस कैशफ़्लो को बढ़ाएँ।")
