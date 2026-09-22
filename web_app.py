@@ -15,29 +15,28 @@ from reportlab.lib import colors
 # --- पेज कॉन्फ़िगरेशन ---
 st.set_page_config(page_title="100 Crore Wealth Hub", page_icon="👑", layout="centered")
 
-# --- सुरक्षा पिन ---
-SECRET_PIN = "1234"
-
-if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
-
-if not st.session_state["authenticated"]:
-    st.title("🔒 100 Crore Wealth Vault")
-    st.caption("सुरक्षित वित्तीय ऐप में प्रवेश के लिए पिन दर्ज करें।")
-    pin_input = st.text_input("4-अंकों का गुप्त पिन डालें:", type="password")
-    if st.button("लॉगिन करें 🔓", type="primary"):
-        if pin_input == SECRET_PIN:
-            st.session_state["authenticated"] = True
-            st.success("सफलतापूर्वक अनलॉक हुआ!")
-            st.rerun()
-        else:
-            st.error("गलत पिन! सही पिन दर्ज करें।")
-    st.stop()
-
 # --- डेटाबेस सेटअप ---
 DB_PATH = "wealth_data.db"
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 cursor = conn.cursor()
+
+# पिन स्टोरेज टेबल
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS app_settings (
+        setting_key TEXT PRIMARY KEY,
+        setting_value TEXT
+    )
+""")
+
+# डिफ़ॉल्ट पिन इनिशियलाइज़ेशन (शुरुआत में 1234)
+cursor.execute("SELECT setting_value FROM app_settings WHERE setting_key = 'security_pin'")
+pin_row = cursor.fetchone()
+if not pin_row:
+    cursor.execute("INSERT INTO app_settings (setting_key, setting_value) VALUES ('security_pin', '1234')")
+    conn.commit()
+    CURRENT_PIN = "1234"
+else:
+    CURRENT_PIN = pin_row[0]
 
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS income_history (
@@ -89,7 +88,24 @@ cursor.execute("""
 """)
 conn.commit()
 
-# --- साइडबार थीम व डेटा बैकअप / रीस्टोर ---
+# --- सुरक्षा पिन ऑथेंटिकेशन ---
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+if not st.session_state["authenticated"]:
+    st.title("🔒 100 Crore Wealth Vault")
+    st.caption("सुरक्षित वित्तीय ऐप में प्रवेश के लिए पिन दर्ज करें।")
+    pin_input = st.text_input("अपना गुप्त पिन डालें:", type="password")
+    if st.button("लॉगिन करें 🔓", type="primary"):
+        if pin_input == CURRENT_PIN:
+            st.session_state["authenticated"] = True
+            st.success("सफलतापूर्वक अनलॉक हुआ!")
+            st.rerun()
+        else:
+            st.error("गलत पिन! कृपया सही पिन दर्ज करें।")
+    st.stop()
+
+# --- साइडबार थीम व सुरक्षा सेटिंग्स ---
 with st.sidebar:
     st.title("🎨 थीम व सेटिंग्स")
     theme_choice = st.selectbox(
@@ -98,10 +114,30 @@ with st.sidebar:
     )
     
     st.divider()
+    st.subheader("🔐 पिन बदलें (Change PIN)")
+    with st.expander("अपना सुरक्षा पिन अपडेट करें"):
+        with st.form("change_pin_form", clear_on_submit=True):
+            old_p = st.text_input("मौजूदा पुराना पिन:", type="password")
+            new_p = st.text_input("नया 4-अंकों का पिन:", type="password", max_chars=8)
+            confirm_p = st.text_input("नए पिन की पुष्टि करें:", type="password", max_chars=8)
+            submit_pin_change = st.form_submit_button("💾 नया पिन सेव करें")
+
+            if submit_pin_change:
+                if old_p != CURRENT_PIN:
+                    st.error("पुराना पिन गलत है!")
+                elif len(new_p) < 4:
+                    st.error("नया पिन कम से कम 4 अंकों का होना चाहिए!")
+                elif new_p != confirm_p:
+                    st.error("नया पिन और पुष्टि पिन मेल नहीं खा रहे हैं!")
+                else:
+                    cursor.execute("UPDATE app_settings SET setting_value = ? WHERE setting_key = 'security_pin'", (new_p,))
+                    conn.commit()
+                    st.success("पिन सफलतापूर्वक बदल गया! कृपया नए पिन से दोबारा लॉगिन करें।")
+                    st.session_state["authenticated"] = False
+                    st.rerun()
+
+    st.divider()
     st.subheader("💾 डेटा बैकअप व रीस्टोर")
-    st.caption("अपने सारे रिकॉर्ड्स को सुरक्षित अपने फ़ोन में डाउनलोड करें:")
-    
-    # बैकअप डाउनलोड
     if os.path.exists(DB_PATH):
         with open(DB_PATH, "rb") as fp:
             st.download_button(
@@ -111,7 +147,6 @@ with st.sidebar:
                 mime="application/octet-stream"
             )
             
-    # बैकअप रीस्टोर
     uploaded_db = st.file_uploader("📤 बैकअप फ़ाइल अपलोड करें (.db):", type=["db"])
     if uploaded_db is not None:
         if st.button("🔄 डेटा रीस्टोर करें"):
@@ -209,7 +244,7 @@ st.markdown(f"""
 TARGET = 1000000000  # 100 करोड़
 
 st.title("👑 100 Crore Wealth Hub")
-st.caption("पैसिव इनकम इंजन, बैकअप सुरक्षा, UPI राउंड-अप व 100 Cr रोडमैप")
+st.caption("कस्टम पिन सुरक्षा, पैसिव इनकम, बैकअप इंजन व 100 Cr रोडमैप")
 
 # टैब्स
 tab1, tab_fire, tab_roundup, tab_tax, tab_ai, tab_wishlist, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab_blueprint, tab5 = st.tabs([
@@ -290,7 +325,7 @@ with tab_fire:
     col_fi1, col_fi2 = st.columns(2)
     with col_fi1:
         withdrawal_rate = st.slider("पैसिव विथड्रॉल दर (% वार्षिक):", min_value=3.0, max_value=8.0, value=4.0, step=0.5)
-        st.caption("4% नियम: मूल पूँजी (Principal) कभी कम नहीं होगी और ज़िंदगी भर पैसिव आय आती रहेगी।")
+        st.caption("4% नियम: मूल पूँजी कभी कम नहीं होगी और ज़िंदगी भर पैसिव आय आती रहेगी।")
     with col_fi2:
         annual_passive = total_networth * (withdrawal_rate / 100)
         monthly_passive = annual_passive / 12
