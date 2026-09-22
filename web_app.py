@@ -3,6 +3,11 @@ import pandas as pd
 import sqlite3
 from datetime import date, timedelta
 import random
+import io
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
 
 # --- पेज कॉन्फ़िगरेशन ---
 st.set_page_config(page_title="100 Crore Wealth Hub", page_icon="👑", layout="centered")
@@ -89,7 +94,7 @@ TARGET = 1000000000  # 100 करोड़
 header_col1, header_col2 = st.columns([4, 1])
 with header_col1:
     st.title("👑 100 Crore Wealth Hub")
-    st.caption("नकद, सोना, संपत्तियां और मल्टीपल इनकम स्ट्रीम्स")
+    st.caption("नकद, सोना, संपत्तियां और आधिकारिक वेल्थ रिपोर्ट")
 with header_col2:
     if st.button("लॉगआउट 🔒"):
         st.session_state["authenticated"] = False
@@ -102,7 +107,7 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "🥇 गोल्ड व एसेट्स", 
     "🚀 100 Cr रोडमैप",
     "🔥 अनुशासन व लक्ष्य",
-    "👑 इनकम स्ट्रीम्स व विज़न"
+    "👑 इनकम व विज़न"
 ])
 
 # ----------------- TAB 2: CASH INCOME -----------------
@@ -242,7 +247,7 @@ total_cash = cash_df["रकम (₹)"].sum() if not cash_df.empty else 0.0
 total_assets = asset_df["वैल्यू (₹)"].sum() if not asset_df.empty else 0.0
 total_networth = total_cash + total_assets
 
-# ----------------- TAB 1: TOTAL DASHBOARD -----------------
+# ----------------- TAB 1: TOTAL DASHBOARD & PDF GENERATOR -----------------
 with tab1:
     col_m1, col_m2, col_m3 = st.columns(3)
     with col_m1:
@@ -284,6 +289,94 @@ with tab1:
         st.write(f"**{target_years} साल का लक्ष्य पाने के लिए:**")
         st.write(f"रोज़ाना चाहिए: **₹{required_per_day:,.0f}/दिन**")
         st.write(f"मासिक चाहिए: **₹{required_per_month:,.0f}/महीना**")
+
+    # --- PDF रिपोर्ट जनरेटर फ़ंक्शन ---
+    st.divider()
+    st.subheader("📄 आधिकारिक वेल्थ ऑडिट रिपोर्ट (Download PDF)")
+    st.caption("अपनी पूरी वित्तीय स्थिति और 100 करोड़ प्रोग्रेस की प्रोफ़ेशनल PDF फ़ाइल डाउनलोड करें।")
+
+    def generate_wealth_pdf():
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
+        elements = []
+        styles = getSampleStyleSheet()
+
+        title_style = ParagraphStyle(
+            name='TitleStyle',
+            parent=styles['Heading1'],
+            fontSize=22,
+            textColor=colors.HexColor("#1a202c"),
+            alignment=1,
+            spaceAfter=15
+        )
+        subtitle_style = ParagraphStyle(
+            name='SubTitleStyle',
+            parent=styles['Normal'],
+            fontSize=10,
+            textColor=colors.HexColor("#718096"),
+            alignment=1,
+            spaceAfter=25
+        )
+
+        elements.append(Paragraph("100 CRORE TARGET - OFFICIAL WEALTH AUDIT", title_style))
+        elements.append(Paragraph(f"Generated on: {date.today().strftime('%d %B %Y')} | Confidential Portfolio Report", subtitle_style))
+
+        # समरी टेबल
+        summary_data = [
+            ["Financial Metric", "Amount (INR)", "Status / Ratio"],
+            ["Total Networth", f"Rs. {total_networth:,.0f}", f"{(total_networth/TARGET)*100:.6f}% of Target"],
+            ["Total Liquid Cash", f"Rs. {total_cash:,.0f}", f"{(total_cash/total_networth*100) if total_networth>0 else 0:.1f}% Allocation"],
+            ["Total Assets & Gold", f"Rs. {total_assets:,.0f}", f"{(total_assets/total_networth*100) if total_networth>0 else 0:.1f}% Allocation"],
+            ["Target Gap (Remaining)", f"Rs. {TARGET - total_networth:,.0f}", "Target: Rs. 100 Crore"]
+        ]
+        t = Table(summary_data, colWidths=[200, 170, 170])
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#2d3748")),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e0")),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor("#f7fafc"), colors.white])
+        ]))
+        elements.append(t)
+        elements.append(Spacer(1, 20))
+
+        # हालिया रिकॉर्ड्स
+        elements.append(Paragraph("Recent Cash Transactions (Last 5 Entries)", styles['Heading2']))
+        elements.append(Spacer(1, 8))
+
+        recent_cash = cash_df.head(5) if not cash_df.empty else pd.DataFrame()
+        if not recent_cash.empty:
+            rec_data = [["Date", "Amount (INR)", "Description / Stream"]]
+            for _, r_item in recent_cash.iterrows():
+                rec_data.append([str(r_item["तारीख"]), f"Rs. {r_item['रकम (₹)']:,.0f}", str(r_item["विवरण"])])
+            t_rec = Table(rec_data, colWidths=[100, 140, 300])
+            t_rec.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#4a5568")),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e0")),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('TOPPADDING', (0, 0), (-1, -1), 6)
+            ]))
+            elements.append(t_rec)
+        else:
+            elements.append(Paragraph("No cash entries recorded yet.", styles['Normal']))
+
+        doc.build(elements)
+        buffer.seek(0)
+        return buffer
+
+    pdf_file = generate_wealth_pdf()
+    st.download_button(
+        label="📥 वेल्थ ऑडिट PDF डाउनलोड करें",
+        data=pdf_file,
+        file_name=f"100_Crore_Wealth_Report_{date.today()}.pdf",
+        mime="application/pdf"
+    )
 
 # ----------------- TAB 4: ROADMAP & COMPOUNDING -----------------
 with tab4:
@@ -395,7 +488,6 @@ with tab6:
     st.subheader("👑 आय के स्रोत (Income Streams Breakdown)")
     
     if not cash_df.empty:
-        # विवरण से कैटेगरी निकालना
         def extract_cat(val):
             if "[" in str(val) and "]" in str(val):
                 return str(val).split("]")[0].replace("[", "").strip()
