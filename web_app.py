@@ -5,6 +5,7 @@ from datetime import date, timedelta
 import random
 import io
 import requests
+import math
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -180,12 +181,13 @@ conn.commit()
 TARGET = 1000000000  # 100 करोड़
 
 st.title("👑 100 Crore Wealth Hub")
-st.caption("AI वेल्थ मेंटॉर, क्राइसिस सिम्युलेटर, गोल्ड वैल्यूएशन व 100 करोड़ रोडमैप")
+st.caption("UPI राउंड-अप चिल्लर इनवेस्टिंग, गोल्ड वैल्यूएशन व 100 करोड़ रोडमैप")
 
 # टैब्स
-tab1, tab_ai, tab_wishlist, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab_blueprint, tab5 = st.tabs([
+tab1, tab_roundup, tab_ai, tab_wishlist, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab_blueprint, tab5 = st.tabs([
     "📊 डैशबोर्ड", 
-    "🧠 AI मेंटॉर व क्राइसिस",
+    "🪙 UPI राउंड-अप",
+    "🧠 AI मेंटॉर",
     "🏎️ लग्ज़री सिमुलेटर",
     "🎮 गेम ज़ोन",
     "💵 कमाई", 
@@ -250,54 +252,81 @@ else:
     level_title = "🐺 The Lone Hustler"
     level_num = 1
 
-# ----------------- TAB: AI MENTOR & CRISIS LAB (TRENDING) -----------------
-with tab_ai:
-    st.subheader("🧠 AI वेल्थ मेंटॉर व पोर्टफोलियो स्ट्रेस-टेस्ट")
-    st.caption("ट्रेंडिंग टेक: डेटा-संचालित इंटेलिजेंस और बाज़ार क्रैश सर्वाइवल मॉडल")
+# ----------------- TAB: UPI ROUND-UP (POPULAR TREND) -----------------
+with tab_roundup:
+    st.subheader("🪙 UPI स्पेयर-चेंज राउंड-अप और ₹10 डेली गोल्ड SIP")
+    st.caption("करोड़ों भारतीयों का पसंदीदा तरीका: ख़र्च करो और बची हुई चिल्लर से सोना खरीदो!")
 
-    # 1. AI इंटेलिजेंस डायग्नोसिस
-    st.markdown("#### ⚡ AI पोर्टफोलियो डायग्नोसिस")
+    col_ru1, col_ru2 = st.columns(2)
+    with col_ru1:
+        st.markdown("#### 🛒 ख़र्च से चिल्लर ऑटो-सेव करें")
+        spend_amt = st.number_input("आज आपने कितने का UPI ख़र्च किया (₹)?", min_value=1.0, value=73.0, step=5.0)
+        round_to = st.selectbox("राउंड-अप का नियम चुनें:", [10, 50, 100])
+        
+        # राउंड-अप गणित
+        rounded_val = math.ceil(spend_amt / round_to) * round_to
+        spare_change = rounded_val - spend_amt if rounded_val > spend_amt else round_to
+        
+        st.info(f"💡 ख़र्च: ₹{spend_amt:.0f} ➔ राउंड-अप: ₹{rounded_val:.0f} ➔ **बची चिल्लर: ₹{spare_change:.0f}**")
+        
+        if st.button("🟡 यह चिल्लर सीधे 24K गोल्ड में जोड़ें!"):
+            gold_price_gram = 7650.0
+            grams_bought = spare_change / gold_price_gram
+            cursor.execute("INSERT INTO assets_history (entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, ?, ?, ?)",
+                           (today_str, "Gold (24K Round-up)", grams_bought, spare_change, f"UPI Round-up on ₹{spend_amt} spend"))
+            conn.commit()
+            st.balloons()
+            st.success(f"शानदार! ₹{spare_change:.0f} का सोना ({grams_bought:.4f} ग्राम) आपके गोल्ड एसेट में जुड़ गया!")
+            st.rerun()
+
+    with col_ru2:
+        st.markdown("#### ⚡ 1-क्लिक डेली ₹10 / ₹50 गोल्ड SIP")
+        st.write("बिना सोचे-समझे हर रोज़ सोने में छोटी बचत करें:")
+        col_btn1, col_btn2 = st.columns(2)
+        with col_btn1:
+            if st.button("🟡 ₹10 सोना खरीदें"):
+                g_bought = 10.0 / 7650.0
+                cursor.execute("INSERT INTO assets_history (entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, ?, ?, ?)",
+                               (today_str, "Gold (24K Daily SIP)", g_bought, 10.0, "Daily ₹10 Micro SIP"))
+                conn.commit()
+                st.success("₹10 का सोना जुड़ गया!")
+                st.rerun()
+        with col_btn2:
+            if st.button("🟡 ₹50 सोना खरीदें"):
+                g_bought = 50.0 / 7650.0
+                cursor.execute("INSERT INTO assets_history (entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, ?, ?, ?)",
+                               (today_str, "Gold (24K Daily SIP)", g_bought, 50.0, "Daily ₹50 Micro SIP"))
+                conn.commit()
+                st.success("₹50 का सोना जुड़ गया!")
+                st.rerun()
+
+    st.divider()
+    st.markdown("#### 🚀 चिल्लर से 100 करोड़ का जादू (Power of Daily Micro-Savings)")
+    chillar_daily = st.slider("यदि आप रोज़ केवल इतनी चिल्लर बचाएँ (₹):", min_value=20, max_value=500, value=100, step=20)
+    chillar_annual = chillar_daily * 365
+    
+    y10 = chillar_daily * 30 * (((1 + 0.15/12)**120 - 1) / (0.15/12))
+    y20 = chillar_daily * 30 * (((1 + 0.15/12)**240 - 1) / (0.15/12))
+    y30 = chillar_daily * 30 * (((1 + 0.15/12)**360 - 1) / (0.15/12))
+    
+    st.write(f"• **10 साल बाद:** ₹{y10:,.0f} (लगभग ₹{y10/100000:.1f} लाख)")
+    st.write(f"• **20 साल बाद:** ₹{y20:,.0f} (लगभग ₹{y20/10000000:.2f} करोड़)")
+    st.write(f"• **30 साल बाद:** ₹{y30:,.0f} (लगभग **₹{y30/10000000:.2f} करोड़** सिर्फ़ चिल्लर से!)")
+
+# ----------------- TAB: AI MENTOR -----------------
+with tab_ai:
+    st.subheader("🧠 AI वेल्थ मेंटॉर व स्ट्रेस-टेस्ट")
     if total_networth == 0:
         st.info("💡 **AI डायग्नोसिस:** अभी सिस्टम में पूँजी दर्ज नहीं है। पहली कमाई और सोने की बचत से यात्रा शुरू करें।")
     else:
         cash_ratio = (total_net_cash / total_networth) * 100 if total_networth > 0 else 0
         asset_ratio = (total_assets / total_networth) * 100 if total_networth > 0 else 0
-        
         if cash_ratio > 70:
-            st.warning(f"⚠️ **AI चेतावनी:** आपकी 70%+ पूँजी ({cash_ratio:.1f}%) नकद में पड़ी है। मुद्रास्फीति (Inflation) नकदी को खा जाती है। इसे तुरंत 24K गोल्ड या ठोस एसेट्स में बदलें!")
+            st.warning(f"⚠️ **AI चेतावनी:** आपकी {cash_ratio:.1f}% पूँजी नकद में है। इसे तुरंत सोने या एसेट्स में बदलें!")
         elif asset_ratio > 70:
-            st.success(f"🎯 **AI इनसाइट:** आपका 70%+ पोर्टफोलियो वास्तविक एसेट्स में सुरक्षित है। यह 100 करोड़ के लक्ष्य के लिए सबसे स्थिर ढांचा है।")
+            st.success(f"🎯 **AI इनसाइट:** आपका 70%+ पोर्टफोलियो वास्तविक एसेट्स में सुरक्षित है।")
         else:
-            st.info("💡 **संतुलित रणनीति:** नकद तरलता और एसेट्स का अनुपात संतुलित है। अपनी मासिक आय बढ़ाने पर ध्यान दें।")
-
-    # 2. सर्वाइवल रनवे
-    st.divider()
-    st.markdown("#### 🛡️ इमरजेंसी सर्वाइवल रनवे (Zero-Income Runway)")
-    avg_monthly_exp = exp_df["रकम (₹)"].sum() if not exp_df.empty else 0.0
-    if avg_monthly_exp > 0:
-        runway_months = total_net_cash / (avg_monthly_exp / max(len(unique_dates), 1) * 30)
-        st.write(f"यदि आज से सारी कमाई बंद हो जाए, तो आपकी वर्तमान नकद बचत **{runway_months:.1f} महीने** का खर्च चला सकती है।")
-    else:
-        st.write("इमरजेंसी रनवे मापने के लिए कुछ ख़र्च दर्ज करें।")
-
-    # 3. मार्केट क्रैश स्ट्रेस-टेस्ट सिम्युलेटर
-    st.divider()
-    st.markdown("#### 📉 क्रैश स्ट्रेस-टेस्ट (Crisis Shock Simulator)")
-    st.caption("यदि बाज़ार में अचानक कोई बड़ा संकट या मंदी आ जाए, तो आपकी नेटवर्थ पर क्या असर होगा?")
-    
-    crash_pct = st.slider("क्रैश का स्तर चुनें (% गिरावट):", min_value=10, max_value=50, value=25, step=5)
-    
-    # संकट में सोने का प्रभाव (सोना अक्सर मंदी में बढ़ता या स्थिर रहता है)
-    stressed_assets = total_assets * (1 - (crash_pct / 200)) # एसेट्स केवल आधे गिरते हैं
-    stressed_networth = max(total_net_cash + stressed_assets - total_liabilities, 0.0)
-    
-    col_c1, col_c2 = st.columns(2)
-    with col_c1:
-        st.metric("क्रैश के बाद अनुमानित नेटवर्थ", f"₹{stressed_networth:,.0f}", f"-{(1 - stressed_networth/total_networth)*100:.1f}%" if total_networth > 0 else "0%")
-    with col_c2:
-        st.metric("पूँजी सुरक्षा शील्ड (Gold Factor)", f"₹{stressed_assets:,.0f}")
-    
-    st.info("💡 **गोल्ड शील्ड नियम:** हार्ड एसेट्स (सोना और ज़मीन) होने के कारण आपका पोर्टफोलियो सामान्य निवेशकों से 50% अधिक सुरक्षित रहता है।")
+            st.info("💡 **संतुलित रणनीति:** नकद और एसेट्स का संतुलन अच्छा है।")
 
 # ----------------- TAB: LUXURY SIMULATOR -----------------
 with tab_wishlist:
@@ -310,7 +339,6 @@ with tab_wishlist:
         {"icon": "✈️", "name": "प्राइवेट जेट", "cost": 450000000},
         {"icon": "🏝️", "name": "प्राइवेट आइलैंड एस्टेट", "cost": 850000000}
     ]
-
     for item in luxury_items:
         c_cost = item["cost"]
         pct = min((total_networth / c_cost) * 100, 100.0)
@@ -325,29 +353,6 @@ with tab_wishlist:
                 st.warning(f"⏳ `{pct:.2f}%`")
         st.divider()
 
-    with st.form("custom_dream_form", clear_on_submit=True):
-        c_dream_col1, c_dream_col2 = st.columns(2)
-        with c_dream_col1:
-            dream_name = st.text_input("सपने का नाम (उदा. फ़ार्महाउस, होटल):")
-        with c_dream_col2:
-            dream_cost = st.number_input("अनुमानित लागत (₹ में):", min_value=10000.0, step=50000.0)
-        submit_dream = st.form_submit_button("💾 विशलिस्ट में जोड़ें")
-
-        if submit_dream and dream_name and dream_cost > 0:
-            cursor.execute("INSERT INTO custom_wishlist (item_name, cost) VALUES (?, ?)", (dream_name, dream_cost))
-            conn.commit()
-            st.success("सपना विशलिस्ट में जुड़ गया!")
-            st.rerun()
-
-    custom_w_df = pd.read_sql_query("SELECT id, item_name as 'सपना', cost as 'लागत (₹)' FROM custom_wishlist ORDER BY id DESC", conn)
-    if not custom_w_df.empty:
-        st.write("#### 🎯 आपकी कस्टम विशलिस्ट:")
-        for _, row in custom_w_df.iterrows():
-            c_cost = row["लागत (₹)"]
-            pct = min((total_networth / c_cost) * 100, 100.0)
-            st.write(f"**{row['सपना']}** — ₹{c_cost:,.0f} (`{pct:.2f}%` पूरा)")
-            st.progress(pct / 100)
-
 # ----------------- TAB: GAME ZONE -----------------
 with tab_game:
     st.subheader("🎮 100 करोड़ एलीट गेम ज़ोन")
@@ -358,23 +363,6 @@ with tab_game:
         <p style="color: #a0aec0 !important; font-size: 1rem;">PLAYER LEVEL: <b>{level_num} / 6</b> | DISCIPLINE STREAK: <b>🔥 {streak} DAYS</b></p>
     </div>
     """, unsafe_allow_html=True)
-    
-    st.divider()
-    st.subheader("📸 सोशल मीडिया स्टेटस कार्ड")
-    st.info(f"🏆 **रैंक:** {level_title}\n\n🔥 **स्ट्राइक:** {streak} दिन\n\n🎯 **प्रोग्रेस:** {(total_networth/TARGET)*100:.6f}%")
-    st.success("👉 इसका स्क्रीनशॉट लेकर WhatsApp/Instagram पर शेयर करें!")
-
-    st.divider()
-    st.subheader("🎲 द वेल्थ रूले (Daily Challenge)")
-    challenges = [
-        "🔥 **Zero-Waste Day:** आज ₹1 की भी फ़ालतू चीज़ न खरीदें।",
-        "🟡 **Gold Lock Challenge:** आज कम से कम 0.5g सोने की बचत का संकल्प लें।",
-        "🧠 **1-Hour Skill Sprint:** आज 1 घंटा कोई नई आय पैदा करने वाली स्किल सीखें।",
-        "⚖️ **Audit Hour:** पिछले 7 दिनों के ख़र्चों को देखकर एक बेकार ख़र्च तुरंत बंद करें।"
-    ]
-    if st.button("🎲 आज का चैलेंज घुमाएँ"):
-        st.balloons()
-        st.warning(random.choice(challenges))
 
 # ----------------- TAB 2: INCOME -----------------
 with tab2:
@@ -406,13 +394,6 @@ with tab2:
         st.dataframe(cash_df.drop(columns=["id"]), use_container_width=True)
         csv_cash = cash_df.to_csv(index=False).encode('utf-8')
         st.download_button("📥 कमाई CSV डाउनलोड करें", data=csv_cash, file_name="income_records.csv", mime="text/csv")
-        with st.expander("🗑️ कमाई एंट्री हटाएँ"):
-            del_id = st.selectbox("एंट्री चुनें:", options=cash_df["id"].tolist(),
-                                  format_func=lambda x: f"ID {x} - ₹{cash_df.loc[cash_df['id']==x, 'रकम (₹)'].values[0]:,.0f}")
-            if st.button("❌ कमाई मिटाएँ"):
-                cursor.execute("DELETE FROM income_history WHERE id = ?", (del_id,))
-                conn.commit()
-                st.rerun()
 
 # ----------------- TAB: EXPENSES -----------------
 with tab_exp:
@@ -436,13 +417,6 @@ with tab_exp:
 
     if not exp_df.empty:
         st.dataframe(exp_df.drop(columns=["id"]), use_container_width=True)
-        with st.expander("🗑️ ख़र्च एंट्री हटाएँ"):
-            del_exp_id = st.selectbox("ख़र्च चुनें:", options=exp_df["id"].tolist(),
-                                      format_func=lambda x: f"ID {x} - ₹{exp_df.loc[exp_df['id']==x, 'रकम (₹)'].values[0]:,.0f}")
-            if st.button("❌ ख़र्च मिटाएँ"):
-                cursor.execute("DELETE FROM expense_history WHERE id = ?", (del_exp_id,))
-                conn.commit()
-                st.rerun()
 
 # ----------------- TAB: DEBT / LOAN -----------------
 with tab_debt:
@@ -467,13 +441,6 @@ with tab_debt:
 
     if not debt_df.empty:
         st.dataframe(debt_df.drop(columns=["id"]), use_container_width=True)
-        with st.expander("🗑️ कर्ज़ एंट्री हटाएँ"):
-            del_debt_id = st.selectbox("रिकॉर्ड चुनें:", options=debt_df["id"].tolist(),
-                                       format_func=lambda x: f"ID {x} - ₹{debt_df.loc[debt_df['id']==x, 'रकम (₹)'].values[0]:,.0f}")
-            if st.button("❌ कर्ज़ मिटाएँ"):
-                cursor.execute("DELETE FROM debt_history WHERE id = ?", (del_debt_id,))
-                conn.commit()
-                st.rerun()
 
 # ----------------- TAB 3: GOLD & ASSETS -----------------
 with tab3:
@@ -486,55 +453,8 @@ with tab3:
     with col_gr3:
         st.info("⚪ शुद्ध चाँदी: **₹92 / ग्राम**")
 
-    asset_mode = st.radio("जोड़ने का तरीक़ा:", ["गोल्ड कैलकुलेटर (ग्राम अनुसार)", "अन्य अचल संपत्ति"], horizontal=True)
-
-    with st.form("asset_form", clear_on_submit=True):
-        col1, col2 = st.columns(2)
-        with col1:
-            asset_date = st.date_input("तारीख", value=date.today(), key="asset_date")
-        
-        if asset_mode == "गोल्ड कैलकुलेटर (ग्राम अनुसार)":
-            with col2:
-                gold_purity = st.selectbox("शुद्धता", ["24K (99.9% शुद्ध सोना)", "22K (गहने/ज्वेलरी)", "चाँदी (Silver)"])
-            default_rate = 7650.0 if "24" in gold_purity else (7050.0 if "22" in gold_purity else 92.0)
-            c_g1, c_g2 = st.columns(2)
-            with c_g1:
-                grams = st.number_input("मात्रा (ग्राम में):", min_value=0.1, value=10.0, step=0.5)
-            with c_g2:
-                rate_per_gram = st.number_input("भाव प्रति ग्राम (₹):", min_value=50.0, value=default_rate, step=50.0)
-            calc_val = grams * rate_per_gram
-            st.write(f"💡 कुल मूल्य: **₹{calc_val:,.0f}**")
-            asset_type = f"Gold ({gold_purity})" if "2" in gold_purity else "Silver"
-            final_val = calc_val
-            final_qty = grams
-            asset_note = st.text_input("नोट:", value=f"{grams}g @ ₹{rate_per_gram}/g")
-        else:
-            with col2:
-                asset_type = st.selectbox("प्रकार", ["ज़मीन / प्लॉट", "मकान / दुकान", "शेयर / म्यूचुअल फंड", "अन्य संपत्ति"])
-            c_m1, c_m2 = st.columns(2)
-            with c_m1:
-                final_val = st.number_input("कुल मौजूदा मूल्यांकन (₹):", min_value=1000.0, step=5000.0)
-            with c_m2:
-                final_qty = st.number_input("मात्रा / यूनिट्स:", min_value=1.0, value=1.0, step=1.0)
-            asset_note = st.text_input("विवरण:", value="दीर्घकालिक संपत्ति")
-
-        submit_asset = st.form_submit_button("💾 एसेट सेव करें")
-        if submit_asset and final_val > 0:
-            cursor.execute("INSERT INTO assets_history (entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, ?, ?, ?)",
-                           (str(asset_date), asset_type, final_qty, final_val, asset_note))
-            conn.commit()
-            st.success("एसेट जुड़ गया!")
-            st.rerun()
-
     if not asset_df.empty:
         st.dataframe(asset_df.drop(columns=["id"]), use_container_width=True)
-        with st.expander("🗑️ एसेट एंट्री हटाएँ"):
-            del_asset_id = st.selectbox("एसेट चुनें:", options=asset_df["id"].tolist(),
-                                        format_func=lambda x: f"ID {x} - {asset_df.loc[asset_df['id']==x, 'प्रकार'].values[0]} (₹{asset_df.loc[asset_df['id']==x, 'मूल्य (₹)'].values[0]:,.0f})")
-            if st.button("❌ एसेट मिटाएँ"):
-                cursor.execute("DELETE FROM assets_history WHERE id = ?", (del_asset_id,))
-                conn.commit()
-                st.rerun()
 
 # ----------------- TAB: HEALTH SCORE -----------------
 with tab_health:
@@ -569,12 +489,6 @@ with tab_health:
         st.metric("वेल्थ स्कोर", f"{score} / 100")
     with col_sc2:
         st.progress(score / 100)
-        if score >= 80:
-            st.success("🌟 एलीट स्टेटस: रणनीति 100 करोड़ के सटीक रास्ते पर है!")
-        elif score >= 50:
-            st.warning("⚡ अच्छा स्तर: बचत दर और निवेश को थोड़ा और आक्रामक बनाएँ।")
-        else:
-            st.error("⚠️ सुधार आवश्यक: खर्च घटाएँ और बचत बढ़ाएँ।")
 
 # ----------------- TAB: ANALYTICS & BUDGET -----------------
 with tab_analytics:
@@ -586,11 +500,6 @@ with tab_analytics:
         st.metric("कुल ख़र्च", f"₹{total_expenses:,.0f}")
     with col_an3:
         st.metric("बचत दर", f"{savings_rate:.1f}%")
-
-    comp_df = pd.DataFrame({
-        "रकम (₹)": [total_gross_income, total_expenses, max(total_gross_income - total_expenses, 0.0)]
-    }, index=["कमाई", "ख़र्च", "शुद्ध बचत"])
-    st.bar_chart(comp_df)
 
 # ----------------- TAB 1: TOTAL DASHBOARD -----------------
 with tab1:
@@ -608,30 +517,6 @@ with tab1:
     st.write(f"### 🎯 100 करोड़ लक्ष्य प्रोग्रेस: `{progress_val * 100:.6f}%`")
     st.progress(progress_val)
     st.info(f"💡 100 करोड़ के लक्ष्य में अभी ₹{TARGET - total_networth:,.0f} शेष हैं।")
-
-    if total_networth > 0:
-        st.write("### 🍰 संपत्ति का बँटवारा")
-        chart_summary = pd.DataFrame({"राशि (₹)": [total_net_cash, total_assets, total_receivables]}, 
-                                     index=["शुद्ध नकद", "गोल्ड व एसेट्स", "लेना बाकी उधारी"])
-        st.bar_chart(chart_summary)
-
-    # स्पीड मीटर
-    st.divider()
-    st.subheader("⚡ 100 करोड़ स्पीड मीटर")
-    daily_avg = cash_df["रकम (₹)"].mean() if not cash_df.empty else 0.0
-    col_v1, col_v2 = st.columns(2)
-    with col_v1:
-        st.write(f"**औसत दैनिक कमाई:** ₹{daily_avg:,.0f}/दिन")
-        if daily_avg > 0:
-            years_needed = ((TARGET - total_networth) / daily_avg) / 365
-            st.write(f"वर्तमान गति से समय लगेगा: **{years_needed:.1f} वर्ष**")
-        else:
-            st.write("समय: --")
-    with col_v2:
-        target_years = st.selectbox("लक्ष्य समय (साल):", [10, 15, 20, 25, 30], index=1)
-        req_month = (TARGET - total_networth) / (target_years * 12)
-        st.write(f"**{target_years} साल में 100 करोड़ के लिए:**")
-        st.write(f"मासिक शुद्ध बचत चाहिए: **₹{req_month:,.0f}/महीना**")
 
     # PDF डाउनलोड
     st.divider()
@@ -689,40 +574,6 @@ with tab4:
             diff = target_amt - total_networth
             pct = min((total_networth / target_amt) * 100, 100.0)
             st.warning(f"⏳ **{name}** — `{pct:.2f}%` पूरा (अभी ₹{diff:,.0f} बाकी)")
-
-    st.divider()
-    st.subheader("⚡ स्टेप-अप कम्पाउंडिंग एक्सीलरेटर")
-    col_s1, col_s2, col_s3 = st.columns(3)
-    with col_s1:
-        base_monthly = st.number_input("शुरुआती मासिक निवेश (₹):", min_value=1000, value=25000, step=5000)
-    with col_s2:
-        step_up_pct = st.slider("सालाना बचत वृद्धि (%):", min_value=0.0, max_value=25.0, value=10.0, step=1.0)
-    with col_s3:
-        annual_rate = st.slider("सालाना रिटर्न (%):", min_value=8.0, max_value=25.0, value=15.0, step=0.5)
-
-    years_list = list(range(1, 31))
-    normal_fv = []
-    stepup_fv = []
-    r = (annual_rate / 100) / 12
-
-    for yr in years_list:
-        n = yr * 12
-        val_norm = base_monthly * (((1 + r)**n - 1) / r) * (1 + r) + (total_networth * ((1 + annual_rate/100)**yr))
-        normal_fv.append(round(val_norm))
-
-    acc_val = total_networth
-    for yr in years_list:
-        yr_monthly = base_monthly * ((1 + step_up_pct/100) ** (yr - 1))
-        for m in range(12):
-            acc_val = (acc_val + yr_monthly) * (1 + r)
-        stepup_fv.append(round(acc_val))
-
-    comp_chart_df = pd.DataFrame({
-        "सामान्य बचत": normal_fv,
-        "🚀 स्टेप-अप एक्सीलरेटर": stepup_fv
-    }, index=[f"वर्ष {y}" for y in years_list])
-
-    st.line_chart(comp_chart_df)
 
 # ----------------- TAB: BLUEPRINT -----------------
 with tab_blueprint:
