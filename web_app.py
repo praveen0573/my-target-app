@@ -180,13 +180,14 @@ conn.commit()
 TARGET = 1000000000  # 100 करोड़
 
 st.title("👑 100 Crore Wealth Hub")
-st.caption("लग्ज़री सिमुलेटर, गेम ज़ोन, गोल्ड वैल्यूएशन व वेल्थ इंजन")
+st.caption("AI वेल्थ मेंटॉर, क्राइसिस सिम्युलेटर, गोल्ड वैल्यूएशन व 100 करोड़ रोडमैप")
 
 # टैब्स
-tab1, tab_game, tab_wishlist, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab_blueprint, tab5 = st.tabs([
+tab1, tab_ai, tab_wishlist, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab_blueprint, tab5 = st.tabs([
     "📊 डैशबोर्ड", 
-    "🎮 गेम ज़ोन",
+    "🧠 AI मेंटॉर व क्राइसिस",
     "🏎️ लग्ज़री सिमुलेटर",
+    "🎮 गेम ज़ोन",
     "💵 कमाई", 
     "💸 ख़र्च",
     "⚖️ कर्ज़ / उधारी",
@@ -249,12 +250,58 @@ else:
     level_title = "🐺 The Lone Hustler"
     level_num = 1
 
-# ----------------- TAB: LUXURY SIMULATOR (NEW) -----------------
-with tab_wishlist:
-    st.subheader("🏎️ लग्ज़री शॉपिंग व विशलिस्ट सिमुलेटर (What Can You Buy?)")
-    st.caption("आपकी वर्तमान नेटवर्थ से कौन-से बड़े सपने अनलॉक हो चुके हैं:")
+# ----------------- TAB: AI MENTOR & CRISIS LAB (TRENDING) -----------------
+with tab_ai:
+    st.subheader("🧠 AI वेल्थ मेंटॉर व पोर्टफोलियो स्ट्रेस-टेस्ट")
+    st.caption("ट्रेंडिंग टेक: डेटा-संचालित इंटेलिजेंस और बाज़ार क्रैश सर्वाइवल मॉडल")
 
-    # डिफ़ॉल्ट लग्ज़री लिस्ट
+    # 1. AI इंटेलिजेंस डायग्नोसिस
+    st.markdown("#### ⚡ AI पोर्टफोलियो डायग्नोसिस")
+    if total_networth == 0:
+        st.info("💡 **AI डायग्नोसिस:** अभी सिस्टम में पूँजी दर्ज नहीं है। पहली कमाई और सोने की बचत से यात्रा शुरू करें।")
+    else:
+        cash_ratio = (total_net_cash / total_networth) * 100 if total_networth > 0 else 0
+        asset_ratio = (total_assets / total_networth) * 100 if total_networth > 0 else 0
+        
+        if cash_ratio > 70:
+            st.warning(f"⚠️ **AI चेतावनी:** आपकी 70%+ पूँजी ({cash_ratio:.1f}%) नकद में पड़ी है। मुद्रास्फीति (Inflation) नकदी को खा जाती है। इसे तुरंत 24K गोल्ड या ठोस एसेट्स में बदलें!")
+        elif asset_ratio > 70:
+            st.success(f"🎯 **AI इनसाइट:** आपका 70%+ पोर्टफोलियो वास्तविक एसेट्स में सुरक्षित है। यह 100 करोड़ के लक्ष्य के लिए सबसे स्थिर ढांचा है।")
+        else:
+            st.info("💡 **संतुलित रणनीति:** नकद तरलता और एसेट्स का अनुपात संतुलित है। अपनी मासिक आय बढ़ाने पर ध्यान दें।")
+
+    # 2. सर्वाइवल रनवे
+    st.divider()
+    st.markdown("#### 🛡️ इमरजेंसी सर्वाइवल रनवे (Zero-Income Runway)")
+    avg_monthly_exp = exp_df["रकम (₹)"].sum() if not exp_df.empty else 0.0
+    if avg_monthly_exp > 0:
+        runway_months = total_net_cash / (avg_monthly_exp / max(len(unique_dates), 1) * 30)
+        st.write(f"यदि आज से सारी कमाई बंद हो जाए, तो आपकी वर्तमान नकद बचत **{runway_months:.1f} महीने** का खर्च चला सकती है।")
+    else:
+        st.write("इमरजेंसी रनवे मापने के लिए कुछ ख़र्च दर्ज करें।")
+
+    # 3. मार्केट क्रैश स्ट्रेस-टेस्ट सिम्युलेटर
+    st.divider()
+    st.markdown("#### 📉 क्रैश स्ट्रेस-टेस्ट (Crisis Shock Simulator)")
+    st.caption("यदि बाज़ार में अचानक कोई बड़ा संकट या मंदी आ जाए, तो आपकी नेटवर्थ पर क्या असर होगा?")
+    
+    crash_pct = st.slider("क्रैश का स्तर चुनें (% गिरावट):", min_value=10, max_value=50, value=25, step=5)
+    
+    # संकट में सोने का प्रभाव (सोना अक्सर मंदी में बढ़ता या स्थिर रहता है)
+    stressed_assets = total_assets * (1 - (crash_pct / 200)) # एसेट्स केवल आधे गिरते हैं
+    stressed_networth = max(total_net_cash + stressed_assets - total_liabilities, 0.0)
+    
+    col_c1, col_c2 = st.columns(2)
+    with col_c1:
+        st.metric("क्रैश के बाद अनुमानित नेटवर्थ", f"₹{stressed_networth:,.0f}", f"-{(1 - stressed_networth/total_networth)*100:.1f}%" if total_networth > 0 else "0%")
+    with col_c2:
+        st.metric("पूँजी सुरक्षा शील्ड (Gold Factor)", f"₹{stressed_assets:,.0f}")
+    
+    st.info("💡 **गोल्ड शील्ड नियम:** हार्ड एसेट्स (सोना और ज़मीन) होने के कारण आपका पोर्टफोलियो सामान्य निवेशकों से 50% अधिक सुरक्षित रहता है।")
+
+# ----------------- TAB: LUXURY SIMULATOR -----------------
+with tab_wishlist:
+    st.subheader("🏎️ लग्ज़री शॉपिंग व विशलिस्ट सिमुलेटर")
     luxury_items = [
         {"icon": "⌚", "name": "रोलेक्स / लक्ज़री घड़ी", "cost": 1500000},
         {"icon": "🏎️", "name": "लक्ज़री स्पोर्ट्स कार (BMW/Merc)", "cost": 8500000},
@@ -267,7 +314,6 @@ with tab_wishlist:
     for item in luxury_items:
         c_cost = item["cost"]
         pct = min((total_networth / c_cost) * 100, 100.0)
-        
         col_w1, col_w2 = st.columns([3, 1])
         with col_w1:
             st.write(f"### {item['icon']} {item['name']} — `₹{c_cost:,.0f}`")
@@ -279,12 +325,10 @@ with tab_wishlist:
                 st.warning(f"⏳ `{pct:.2f}%`")
         st.divider()
 
-    # कस्टम विशलिस्ट जोड़ना
-    st.subheader("➕ अपना व्यक्तिगत सपना जोड़ें (Add Custom Dream Asset)")
     with st.form("custom_dream_form", clear_on_submit=True):
         c_dream_col1, c_dream_col2 = st.columns(2)
         with c_dream_col1:
-            dream_name = st.text_input("सपने का नाम (उदा. फ़ार्महाउस, होटल, स्टार्टअप):")
+            dream_name = st.text_input("सपने का नाम (उदा. फ़ार्महाउस, होटल):")
         with c_dream_col2:
             dream_cost = st.number_input("अनुमानित लागत (₹ में):", min_value=10000.0, step=50000.0)
         submit_dream = st.form_submit_button("💾 विशलिस्ट में जोड़ें")
@@ -526,7 +570,7 @@ with tab_health:
     with col_sc2:
         st.progress(score / 100)
         if score >= 80:
-            st.success("🌟 एलीट स्टेटस: आपकी रणनीति 100 करोड़ के सटीक रास्ते पर है!")
+            st.success("🌟 एलीट स्टेटस: रणनीति 100 करोड़ के सटीक रास्ते पर है!")
         elif score >= 50:
             st.warning("⚡ अच्छा स्तर: बचत दर और निवेश को थोड़ा और आक्रामक बनाएँ।")
         else:
