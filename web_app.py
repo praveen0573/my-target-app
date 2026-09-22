@@ -164,7 +164,7 @@ conn.commit()
 TARGET = 1000000000  # 100 करोड़
 
 st.title("👑 100 Crore Wealth Hub")
-st.caption("लाइव गोल्ड वैल्यूएशन, वित्तीय स्कोर, संपत्तियां व 100 करोड़ रोडमैप")
+st.caption("लाइव गोल्ड वैल्यूएशन, वित्तीय स्कोर, स्टेप-अप कम्पाउंडिंग व 100 करोड़ रोडमैप")
 
 # टैब्स
 tab1, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab_blueprint, tab5 = st.tabs([
@@ -287,7 +287,6 @@ with tab_debt:
 # ----------------- TAB 3: GOLD & ASSETS -----------------
 with tab3:
     st.subheader("🥇 गोल्ड व वास्तविक संपत्तियां")
-    
     st.markdown("#### ⚡ लाइव मार्केट गोल्ड रेट्स")
     col_gr1, col_gr2, col_gr3 = st.columns(3)
     with col_gr1:
@@ -369,11 +368,8 @@ savings_rate = ((total_gross_income - total_expenses) / total_gross_income * 100
 
 # ----------------- TAB: HEALTH SCORE -----------------
 with tab_health:
-    st.subheader("🩺 फाइनेंशियल हेल्थ स्कोर (Financial Health Audit)")
-    
-    # स्कोर गणना
+    st.subheader("🩺 फाइनेंशियल हेल्थ ऑडिट (Wealth Health Score)")
     score = 0
-    # 1. बचत दर स्कोर (अधिकतम 35)
     if savings_rate >= 60:
         score += 35
     elif savings_rate >= 40:
@@ -381,7 +377,6 @@ with tab_health:
     elif savings_rate > 0:
         score += 15
 
-    # 2. कर्ज़ नियंत्रण (अधिकतम 30)
     if total_liabilities == 0 and total_networth > 0:
         score += 30
     elif total_liabilities < (total_networth * 0.2):
@@ -389,13 +384,11 @@ with tab_health:
     else:
         score += 5
 
-    # 3. एसेट विविधता (अधिकतम 20)
     if total_assets > 0 and total_net_cash > 0:
         score += 20
     elif total_assets > 0 or total_net_cash > 0:
         score += 10
 
-    # 4. डेटा निरंतरता (अधिकतम 15)
     if len(cash_df) >= 5:
         score += 15
     elif len(cash_df) > 0:
@@ -407,22 +400,11 @@ with tab_health:
     with col_sc2:
         st.progress(score / 100)
         if score >= 80:
-            st.success("🌟 एलीट स्टेटस: आपकी वित्तीय रणनीति 100 करोड़ के लक्ष्य के बिल्कुल सटीक रास्ते पर है!")
+            st.success("🌟 एलीट स्टेटस: आपकी रणनीति 100 करोड़ के लक्ष्य के सटीक रास्ते पर है!")
         elif score >= 50:
-            st.warning("⚡ अच्छा स्तर: बचत दर और एसेट एलोकेशन को थोड़ा और आक्रामक बनाने की आवश्यकता है।")
+            st.warning("⚡ अच्छा स्तर: बचत दर और निवेश को थोड़ा और आक्रामक बनाएँ।")
         else:
-            st.error("⚠️ सुधार की आवश्यकता: खर्चों को कम करें और नियमित बचत अनुशासन बनाएँ।")
-
-    st.divider()
-    st.markdown("#### 💡 स्मार्ट वेल्थ एडवाइजर सुझाव:")
-    if savings_rate < 50:
-        st.write("• **बचत दर बढ़ाएँ:** अपनी आय का कम से कम 50% बचाने का प्रयास करें।")
-    if total_liabilities > 0:
-        st.write("• **कर्ज़ मुक्ति:** सबसे पहले उच्च ब्याज वाले कर्ज़ को समाप्त करें।")
-    if total_assets == 0:
-        st.write("• **गोल्ड में एलोकेशन:** नकदी को सुरक्षित रखने के लिए नियमित रूप से 24K गोल्ड में बदलें।")
-    if total_assets > 0 and savings_rate >= 50 and total_liabilities == 0:
-        st.write("• **स्पीड अप:** अब नए बिज़नेस और हाई-कैशफ़्लो प्रोजेक्ट्स पर पूरा ध्यान केंद्रित करें!")
+            st.error("⚠️ सुधार आवश्यक: खर्च घटाएँ और नियमित बचत अनुशासन बढ़ाएँ।")
 
 # ----------------- TAB: ANALYTICS & BUDGET -----------------
 with tab_analytics:
@@ -463,7 +445,6 @@ with tab1:
                                      index=["शुद्ध नकद", "गोल्ड व एसेट्स", "लेना बाकी उधारी"])
         st.bar_chart(chart_summary)
 
-    # स्पीड मीटर
     st.divider()
     st.subheader("⚡ 100 करोड़ स्पीड मीटर")
     daily_avg = cash_df["रकम (₹)"].mean() if not cash_df.empty else 0.0
@@ -518,9 +499,9 @@ with tab1:
         mime="application/pdf"
     )
 
-# ----------------- TAB 4: ROADMAP -----------------
+# ----------------- TAB 4: ROADMAP & STEP-UP ACCELERATOR -----------------
 with tab4:
-    st.subheader("🪜 माइलस्टोन लेडर")
+    st.subheader("🪜 माइलस्टोन लेडर (Wealth Milestones)")
     milestones = [
         ("पहला पड़ाव: 10 लाख", 1000000),
         ("दूसरा पड़ाव: 50 लाख", 5000000),
@@ -539,21 +520,56 @@ with tab4:
             st.warning(f"⏳ **{name}** — `{pct:.2f}%` पूरा (अभी ₹{diff:,.0f} बाकी)")
 
     st.divider()
-    st.subheader("⚡ कम्पाउंडिंग सिमुलेटर")
-    col_s1, col_s2 = st.columns(2)
+    st.subheader("⚡ स्टेप-अप कम्पाउंडिंग एक्सीलरेटर (100 Cr Fast-Track)")
+    col_s1, col_s2, col_s3 = st.columns(3)
     with col_s1:
-        monthly_invest = st.number_input("मासिक निवेश (₹):", min_value=1000, value=25000, step=5000)
+        base_monthly = st.number_input("शुरुआती मासिक निवेश (₹):", min_value=1000, value=25000, step=5000)
     with col_s2:
+        step_up_pct = st.slider("सालाना बचत वृद्धि (Step-up %):", min_value=0.0, max_value=25.0, value=10.0, step=1.0)
+    with col_s3:
         annual_rate = st.slider("सालाना रिटर्न (%):", min_value=8.0, max_value=25.0, value=15.0, step=0.5)
 
+    # 30 साल की स्टेप-अप तुलना
     years_list = list(range(1, 31))
-    future_values = []
+    normal_fv = []
+    stepup_fv = []
+    
     r = (annual_rate / 100) / 12
+    curr_stepup_invest = base_monthly
+    
+    # नॉर्मल सिमुलेशन
     for yr in years_list:
         n = yr * 12
-        fv = monthly_invest * (((1 + r)**n - 1) / r) * (1 + r) + (total_networth * ((1 + annual_rate/100)**yr))
-        future_values.append(round(fv))
-    st.line_chart(pd.DataFrame({"अनुमानित नेटवर्थ (₹)": future_values}, index=[f"वर्ष {y}" for y in years_list]))
+        val_norm = base_monthly * (((1 + r)**n - 1) / r) * (1 + r) + (total_networth * ((1 + annual_rate/100)**yr))
+        normal_fv.append(round(val_norm))
+
+    # स्टेप-अप सिमुलेशन (हर साल निवेश बढ़ता है)
+    acc_val = total_networth
+    for yr in years_list:
+        yr_monthly = base_monthly * ((1 + step_up_pct/100) ** (yr - 1))
+        for m in range(12):
+            acc_val = (acc_val + yr_monthly) * (1 + r)
+        stepup_fv.append(round(acc_val))
+
+    comp_chart_df = pd.DataFrame({
+        "सामान्य बचत (No Step-up)": normal_fv,
+        "🚀 स्टेप-अप एक्सीलरेटर": stepup_fv
+    }, index=[f"वर्ष {y}" for y in years_list])
+
+    st.line_chart(comp_chart_df)
+
+    # 100 करोड़ पहुँचने के वर्ष की तुलना
+    reach_normal = None
+    reach_stepup = None
+    for yr, v1, v2 in zip(years_list, normal_fv, stepup_fv):
+        if v1 >= TARGET and reach_normal is None:
+            reach_normal = yr
+        if v2 >= TARGET and reach_stepup is None:
+            reach_stepup = yr
+
+    if reach_stepup:
+        saved_yrs = (reach_normal - reach_stepup) if reach_normal else (30 - reach_stepup)
+        st.success(f"🎯 स्टेप-अप के साथ आप **{reach_stepup}वें साल** में 100 करोड़ छू लेंगे (आपने लक्ष्य के लगभग **{saved_yrs} वर्ष बचा लिए**!)")
 
 # ----------------- TAB: BLUEPRINT -----------------
 with tab_blueprint:
