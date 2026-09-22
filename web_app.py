@@ -89,7 +89,7 @@ TARGET = 1000000000  # 100 करोड़
 header_col1, header_col2 = st.columns([4, 1])
 with header_col1:
     st.title("👑 100 Crore Wealth Hub")
-    st.caption("नकद, सोना, संपत्तियां और वित्तीय अनुशासन ट्रैकर")
+    st.caption("नकद, सोना, संपत्तियां और स्पीड मीटर")
 with header_col2:
     if st.button("लॉगआउट 🔒"):
         st.session_state["authenticated"] = False
@@ -164,26 +164,52 @@ with tab2:
 
 # ----------------- TAB 3: GOLD & ASSETS -----------------
 with tab3:
+    st.subheader("🥇 गोल्ड व अन्य संपत्तियां दर्ज करें")
+    
+    asset_mode = st.radio("जोड़ने का तरीका चुनें:", ["गोल्ड ऑटो-कैलकुलेटर (Gram based)", "अन्य एसेट (Manual Value)"], horizontal=True)
+
     with st.form("asset_form", clear_on_submit=True):
-        st.subheader("🥇 नया एसेट / सोना दर्ज करें")
         col1, col2 = st.columns(2)
         with col1:
             asset_date = st.date_input("तारीख", value=date.today(), key="asset_date")
-            asset_type = st.selectbox("एसेट का प्रकार", ["गोल्ड (Gold)", "चाँदी (Silver)", "ज़मीन / प्रॉपर्टी", "अन्य एसेट"])
-        with col2:
-            current_value = st.number_input("कुल मौजूदा वैल्यू (₹ में)", min_value=0.0, step=1000.0)
-            quantity = st.number_input("मात्रा (उदा. ग्राम / यूनिट)", min_value=0.0, step=1.0)
-        asset_note = st.text_input("विवरण (उदा. 24K Gold, 10 ग्राम सिक्का)", value="गोल्ड इनवेस्टमेंट")
-        submit_asset = st.form_submit_button("💾 एसेट सेव करें")
+        
+        if asset_mode == "गोल्ड ऑटो-कैलकुलेटर (Gram based)":
+            with col2:
+                gold_purity = st.selectbox("शुद्धता", ["24K (99.9% शुद्ध सोना)", "22K (गहने/ज्वेलरी)", "चाँदी (Silver)"])
+            
+            c_g1, c_g2 = st.columns(2)
+            with c_g1:
+                grams = st.number_input("सोना / चाँदी (ग्राम में):", min_value=0.1, value=10.0, step=0.5)
+            with c_g2:
+                rate_per_gram = st.number_input("प्रति 1 ग्राम का भाव (₹ में):", min_value=100.0, value=7500.0, step=50.0)
+            
+            calc_val = grams * rate_per_gram
+            st.info(f"💡 कुल अनुमानित वैल्यू: **₹{calc_val:,.0f}**")
+            asset_type = f"Gold ({gold_purity})" if "2" in gold_purity else "Silver"
+            final_val = calc_val
+            final_qty = grams
+            asset_note = st.text_input("विवरण / नोट:", value=f"{grams}g सोना @ ₹{rate_per_gram}/g")
+        else:
+            with col2:
+                asset_type = st.selectbox("एसेट का प्रकार", ["ज़मीन / प्लॉट", "मकान / फ्लैट", "शेयर / म्यूचुअल फंड", "अन्य संपत्ति"])
+            
+            c_m1, c_m2 = st.columns(2)
+            with c_m1:
+                final_val = st.number_input("कुल मौजूदा वैल्यू (₹ में):", min_value=1000.0, step=5000.0)
+            with c_m2:
+                final_qty = st.number_input("मात्रा (Units / Sq.Ft / Qty):", min_value=1.0, value=1.0, step=1.0)
+            asset_note = st.text_input("विवरण:", value="दीर्घकालिक संपत्ति")
 
-        if submit_asset and current_value > 0:
+        submit_asset = st.form_submit_button("💾 एसेट डेटाबेस में जोड़ें")
+
+        if submit_asset and final_val > 0:
             cursor.execute("INSERT INTO assets_history (entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, ?, ?, ?)",
-                           (str(asset_date), asset_type, quantity, current_value, asset_note))
+                           (str(asset_date), asset_type, final_qty, final_val, asset_note))
             conn.commit()
-            st.success("एसेट दर्ज हो गया!")
+            st.success("एसेट सफलतापूर्वक जुड़ गया!")
             st.rerun()
 
-    asset_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', asset_type as 'प्रकार', quantity as 'मात्रा', current_value as 'वैल्यू (₹)', note as 'विवरण' FROM assets_history ORDER BY id DESC", conn)
+    asset_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', asset_type as 'प्रकार', quantity as 'मात्रा/ग्राम', current_value as 'वैल्यू (₹)', note as 'विवरण' FROM assets_history ORDER BY id DESC", conn)
     if not asset_df.empty:
         st.dataframe(asset_df.drop(columns=["id"]), use_container_width=True)
         csv_asset = asset_df.to_csv(index=False).encode('utf-8')
@@ -192,7 +218,7 @@ with tab3:
         with st.expander("🗑️ एसेट एंट्री हटाएँ"):
             del_asset_id = st.selectbox("एसेट चुनें:", options=asset_df["id"].tolist(),
                                         format_func=lambda x: f"ID {x} - {asset_df.loc[asset_df['id']==x, 'प्रकार'].values[0]} (₹{asset_df.loc[asset_df['id']==x, 'वैल्यू (₹)'].values[0]:,.0f})")
-            if st.button("❌ एसेट मिटाएँ"):
+            if st.button("❌ चुनी हुई एसेट मिटाएँ"):
                 cursor.execute("DELETE FROM assets_history WHERE id = ?", (del_asset_id,))
                 conn.commit()
                 st.rerun()
@@ -221,6 +247,29 @@ with tab1:
         st.write("### 🍰 संपत्ति का बँटवारा (Asset Allocation)")
         chart_summary = pd.DataFrame({"राशि (₹)": [total_cash, total_assets]}, index=["नकद बचत", "गोल्ड व एसेट्स"])
         st.bar_chart(chart_summary)
+
+    # 100 करोड़ स्पीड मीटर
+    st.divider()
+    st.subheader("⚡ 100 करोड़ स्पीड व समय कैलकुलेटर")
+    daily_avg = cash_df["रकम (₹)"].mean() if not cash_df.empty else 0.0
+    
+    col_v1, col_v2 = st.columns(2)
+    with col_v1:
+        st.write(f"**आपकी औसत दैनिक बचत:** ₹{daily_avg:,.0f}/दिन")
+        if daily_avg > 0:
+            days_needed = (TARGET - total_networth) / daily_avg
+            years_needed = days_needed / 365
+            st.write(f"वर्तमान गति से समय लगेगा: **{years_needed:.1f} वर्ष**")
+        else:
+            st.write("वर्तमान गति से समय लगेगा: -- वर्ष")
+    
+    with col_v2:
+        target_years = st.selectbox("यदि आप 100 करोड़ पाना चाहते हैं:", [10, 15, 20, 25, 30], index=1)
+        required_per_month = (TARGET - total_networth) / (target_years * 12)
+        required_per_day = required_per_month / 30
+        st.write(f"**{target_years} साल का लक्ष्य पाने के लिए:**")
+        st.write(f"रोज़ाना चाहिए: **₹{required_per_day:,.0f}/दिन**")
+        st.write(f"मासिक चाहिए: **₹{required_per_month:,.0f}/महीना**")
 
 # ----------------- TAB 4: ROADMAP & COMPOUNDING -----------------
 with tab4:
@@ -280,7 +329,6 @@ with tab4:
 with tab5:
     st.subheader("🔥 दैनिक अनुशासन व स्ट्राइक (Daily Streak & Target)")
     
-    # कोट्स
     quotes = [
         "\"अमीर बनने की शुरुआत बड़े सपनों से नहीं, रोज़ के छोटे अनुशासन से होती है।\"",
         "\"जो व्यक्ति छोटे-छोटे रुपयों की कद्र नहीं करता, वह 100 करोड़ कभी नहीं संभाल सकता।\"",
@@ -301,7 +349,6 @@ with tab5:
     with col_d2:
         st.metric("आज की कुल बचत", f"₹{today_savings:,.0f}")
 
-    # दैनिक प्रोग्रेस
     daily_prog = min(today_savings / daily_target, 1.0)
     st.write(f"**आज का दैनिक लक्ष्य पूरा हुआ:** `{daily_prog * 100:.1f}%`")
     st.progress(daily_prog)
@@ -311,12 +358,10 @@ with tab5:
     else:
         st.warning(f"⏳ आज के लक्ष्य से अभी ₹{daily_target - today_savings:,.0f} दूर हैं।")
 
-    # स्ट्राइक गणना
     unique_dates = sorted(cash_df["तारीख"].unique().tolist(), reverse=True) if not cash_df.empty else []
     streak = 0
     check_day = date.today()
     
-    # अगर आज एंट्री नहीं है तो कल से चेक करो
     if today_str not in unique_dates:
         check_day = date.today() - timedelta(days=1)
 
