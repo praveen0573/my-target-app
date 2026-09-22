@@ -167,17 +167,26 @@ cursor.execute("""
         note TEXT
     )
 """)
+
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS custom_wishlist (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        item_name TEXT,
+        cost REAL
+    )
+""")
 conn.commit()
 
 TARGET = 1000000000  # 100 करोड़
 
 st.title("👑 100 Crore Wealth Hub")
-st.caption("लाइव गेम ज़ोन, वेल्थ टाइटल्स, गोल्ड वैल्यूएशन व 100 करोड़ रोडमैप")
+st.caption("लग्ज़री सिमुलेटर, गेम ज़ोन, गोल्ड वैल्यूएशन व वेल्थ इंजन")
 
 # टैब्स
-tab1, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab_blueprint, tab5 = st.tabs([
+tab1, tab_game, tab_wishlist, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab_blueprint, tab5 = st.tabs([
     "📊 डैशबोर्ड", 
     "🎮 गेम ज़ोन",
+    "🏎️ लग्ज़री सिमुलेटर",
     "💵 कमाई", 
     "💸 ख़र्च",
     "⚖️ कर्ज़ / उधारी",
@@ -211,7 +220,6 @@ if not debt_df.empty:
 total_networth = max(total_net_cash + total_assets + total_receivables - total_liabilities, 0.0)
 savings_rate = ((total_gross_income - total_expenses) / total_gross_income * 100) if total_gross_income > 0 else 0.0
 
-# स्ट्राइक गणना
 today_str = str(date.today())
 unique_dates = sorted(cash_df["तारीख"].unique().tolist(), reverse=True) if not cash_df.empty else []
 streak = 0
@@ -222,7 +230,6 @@ while str(check_day) in unique_dates:
     streak += 1
     check_day = check_day - timedelta(days=1)
 
-# लेवल और टाइटल निर्धारण
 if total_networth >= 100000000:
     level_title = "🔱 Shadow Titan (10 Cr+)"
     level_num = 6
@@ -242,11 +249,64 @@ else:
     level_title = "🐺 The Lone Hustler"
     level_num = 1
 
-# ----------------- TAB: GAME ZONE (NEW & EXCITING) -----------------
+# ----------------- TAB: LUXURY SIMULATOR (NEW) -----------------
+with tab_wishlist:
+    st.subheader("🏎️ लग्ज़री शॉपिंग व विशलिस्ट सिमुलेटर (What Can You Buy?)")
+    st.caption("आपकी वर्तमान नेटवर्थ से कौन-से बड़े सपने अनलॉक हो चुके हैं:")
+
+    # डिफ़ॉल्ट लग्ज़री लिस्ट
+    luxury_items = [
+        {"icon": "⌚", "name": "रोलेक्स / लक्ज़री घड़ी", "cost": 1500000},
+        {"icon": "🏎️", "name": "लक्ज़री स्पोर्ट्स कार (BMW/Merc)", "cost": 8500000},
+        {"icon": "👑", "name": "रोल्स-रॉयस फैंटम", "cost": 95000000},
+        {"icon": "🏰", "name": "अल्ट्रा-लक्ज़री पेंटहाउस / महल", "cost": 250000000},
+        {"icon": "✈️", "name": "प्राइवेट जेट", "cost": 450000000},
+        {"icon": "🏝️", "name": "प्राइवेट आइलैंड एस्टेट", "cost": 850000000}
+    ]
+
+    for item in luxury_items:
+        c_cost = item["cost"]
+        pct = min((total_networth / c_cost) * 100, 100.0)
+        
+        col_w1, col_w2 = st.columns([3, 1])
+        with col_w1:
+            st.write(f"### {item['icon']} {item['name']} — `₹{c_cost:,.0f}`")
+            st.progress(pct / 100)
+        with col_w2:
+            if total_networth >= c_cost:
+                st.success("✅ UNLOCKED!")
+            else:
+                st.warning(f"⏳ `{pct:.2f}%`")
+        st.divider()
+
+    # कस्टम विशलिस्ट जोड़ना
+    st.subheader("➕ अपना व्यक्तिगत सपना जोड़ें (Add Custom Dream Asset)")
+    with st.form("custom_dream_form", clear_on_submit=True):
+        c_dream_col1, c_dream_col2 = st.columns(2)
+        with c_dream_col1:
+            dream_name = st.text_input("सपने का नाम (उदा. फ़ार्महाउस, होटल, स्टार्टअप):")
+        with c_dream_col2:
+            dream_cost = st.number_input("अनुमानित लागत (₹ में):", min_value=10000.0, step=50000.0)
+        submit_dream = st.form_submit_button("💾 विशलिस्ट में जोड़ें")
+
+        if submit_dream and dream_name and dream_cost > 0:
+            cursor.execute("INSERT INTO custom_wishlist (item_name, cost) VALUES (?, ?)", (dream_name, dream_cost))
+            conn.commit()
+            st.success("सपना विशलिस्ट में जुड़ गया!")
+            st.rerun()
+
+    custom_w_df = pd.read_sql_query("SELECT id, item_name as 'सपना', cost as 'लागत (₹)' FROM custom_wishlist ORDER BY id DESC", conn)
+    if not custom_w_df.empty:
+        st.write("#### 🎯 आपकी कस्टम विशलिस्ट:")
+        for _, row in custom_w_df.iterrows():
+            c_cost = row["लागत (₹)"]
+            pct = min((total_networth / c_cost) * 100, 100.0)
+            st.write(f"**{row['सपना']}** — ₹{c_cost:,.0f} (`{pct:.2f}%` पूरा)")
+            st.progress(pct / 100)
+
+# ----------------- TAB: GAME ZONE -----------------
 with tab_game:
-    st.subheader("🎮 100 करोड़ एलीट गेम ज़ोन (Gamified Wealth Engine)")
-    
-    # 1. लेवल और टाइटल कार्ड
+    st.subheader("🎮 100 करोड़ एलीट गेम ज़ोन")
     st.markdown(f"""
     <div class="flex-card">
         <h3 style="color: #d4af37 !important; margin: 0;">CURRENT RANK</h3>
@@ -255,38 +315,20 @@ with tab_game:
     </div>
     """, unsafe_allow_html=True)
     
-    st.write("")
-    
-    # 2. सोशल मीडिया फ्लेक्स कार्ड जनरेटर
     st.divider()
-    st.subheader("📸 वायरल फ्लेक्स कार्ड (Social Media Status Card)")
-    st.caption("बिना बैंक बैलेंस दिखाए अपने अनुशासन और रैंक का रुतबा दोस्तों के साथ शेयर करें:")
-    
-    col_fc1, col_fc2 = st.columns(2)
-    with col_fc1:
-        custom_tagline = st.selectbox("कार्ड पर अपना पसंदीदा कोट चुनें:", [
-            "\"Silent moves, loud results. On road to 100 Cr.\"",
-            "\"Discipline over motivation. Every single day.\"",
-            "\"Compound interest is my secret superpower.\"",
-            "\"Assets over liabilities. Always.\""
-        ])
-    with col_fc2:
-        st.info(f"🏆 **रैंक:** {level_title}\n\n🔥 **स्ट्राइक:** {streak} दिन\n\n🎯 **प्रोग्रेस:** {(total_networth/TARGET)*100:.6f}%")
-        st.success("👉 इसका स्क्रीनशॉट लेकर अपनी WhatsApp Story, Instagram Reel या Community पोस्ट में शेयर करें!")
+    st.subheader("📸 सोशल मीडिया स्टेटस कार्ड")
+    st.info(f"🏆 **रैंक:** {level_title}\n\n🔥 **स्ट्राइक:** {streak} दिन\n\n🎯 **प्रोग्रेस:** {(total_networth/TARGET)*100:.6f}%")
+    st.success("👉 इसका स्क्रीनशॉट लेकर WhatsApp/Instagram पर शेयर करें!")
 
-    # 3. द बिलियनेयर रूले (Daily Wealth Challenge)
     st.divider()
-    st.subheader("🎲 द वेल्थ रूले (The Wealth Roulette Challenge)")
-    st.caption("हर दिन एक नया अनुशासन चैलेंज अनलॉक करें:")
-    
+    st.subheader("🎲 द वेल्थ रूले (Daily Challenge)")
     challenges = [
-        "🔥 **Zero-Waste Day:** आज ₹1 की भी गैर-ज़रूरी चीज़ न खरीदें। जो पैसा बचे उसे नकद में जोड़ें!",
-        "🟡 **Gold Lock Challenge:** आज अपने ख़र्चों में से कम से कम 0.5 ग्राम सोने की बचत का संकल्प लें।",
-        "🧠 **1-Hour Skill Sprint:** आज 1 घंटा कोई नई डिजिटल या बिज़नेस स्किल सीखने में लगाएँ।",
-        "⚖️ **Audit Hour:** अपने पिछले 7 दिनों के ख़र्चों को देखें और कम से कम एक फ़ालतू ख़र्च हमेशा के लिए बंद करें!"
+        "🔥 **Zero-Waste Day:** आज ₹1 की भी फ़ालतू चीज़ न खरीदें।",
+        "🟡 **Gold Lock Challenge:** आज कम से कम 0.5g सोने की बचत का संकल्प लें।",
+        "🧠 **1-Hour Skill Sprint:** आज 1 घंटा कोई नई आय पैदा करने वाली स्किल सीखें।",
+        "⚖️ **Audit Hour:** पिछले 7 दिनों के ख़र्चों को देखकर एक बेकार ख़र्च तुरंत बंद करें।"
     ]
-    
-    if st.button("🎲 आज का चैलेंज घुमाएँ (Spin Roulette)"):
+    if st.button("🎲 आज का चैलेंज घुमाएँ"):
         st.balloons()
         st.warning(random.choice(challenges))
 
@@ -299,7 +341,6 @@ with tab2:
             entry_date = st.date_input("तारीख", value=date.today(), key="cash_date")
         with col_b:
             daily_income = st.number_input("रकम (₹ में)", min_value=0.0, step=500.0)
-        
         col_cat1, col_cat2 = st.columns(2)
         with col_cat1:
             income_category = st.selectbox("आय का स्रोत", [
@@ -307,7 +348,6 @@ with tab2:
             ])
         with col_cat2:
             custom_note = st.text_input("अतिरिक्त नोट", value="")
-        
         final_note = f"[{income_category}] {custom_note}".strip()
         submit_cash = st.form_submit_button("💾 कमाई सेव करें")
 
@@ -412,14 +452,12 @@ with tab3:
         if asset_mode == "गोल्ड कैलकुलेटर (ग्राम अनुसार)":
             with col2:
                 gold_purity = st.selectbox("शुद्धता", ["24K (99.9% शुद्ध सोना)", "22K (गहने/ज्वेलरी)", "चाँदी (Silver)"])
-            
             default_rate = 7650.0 if "24" in gold_purity else (7050.0 if "22" in gold_purity else 92.0)
             c_g1, c_g2 = st.columns(2)
             with c_g1:
                 grams = st.number_input("मात्रा (ग्राम में):", min_value=0.1, value=10.0, step=0.5)
             with c_g2:
                 rate_per_gram = st.number_input("भाव प्रति ग्राम (₹):", min_value=50.0, value=default_rate, step=50.0)
-            
             calc_val = grams * rate_per_gram
             st.write(f"💡 कुल मूल्य: **₹{calc_val:,.0f}**")
             asset_type = f"Gold ({gold_purity})" if "2" in gold_purity else "Silver"
@@ -456,7 +494,7 @@ with tab3:
 
 # ----------------- TAB: HEALTH SCORE -----------------
 with tab_health:
-    st.subheader("🩺 फाइनेंशियल हेल्थ ऑडिट (Wealth Health Score)")
+    st.subheader("🩺 फाइनेंशियल हेल्थ ऑडिट")
     score = 0
     if savings_rate >= 60:
         score += 35
@@ -488,15 +526,15 @@ with tab_health:
     with col_sc2:
         st.progress(score / 100)
         if score >= 80:
-            st.success("🌟 एलीट स्टेटस: आपकी रणनीति 100 करोड़ के लक्ष्य के सटीक रास्ते पर है!")
+            st.success("🌟 एलीट स्टेटस: आपकी रणनीति 100 करोड़ के सटीक रास्ते पर है!")
         elif score >= 50:
             st.warning("⚡ अच्छा स्तर: बचत दर और निवेश को थोड़ा और आक्रामक बनाएँ।")
         else:
-            st.error("⚠️ सुधार आवश्यक: खर्च घटाएँ और नियमित बचत अनुशासन बढ़ाएँ।")
+            st.error("⚠️ सुधार आवश्यक: खर्च घटाएँ और बचत बढ़ाएँ।")
 
 # ----------------- TAB: ANALYTICS & BUDGET -----------------
 with tab_analytics:
-    st.subheader("📈 बचत दर विश्लेषण (Savings Rate)")
+    st.subheader("📈 बचत दर विश्लेषण")
     col_an1, col_an2, col_an3 = st.columns(3)
     with col_an1:
         st.metric("कुल कमाई", f"₹{total_gross_income:,.0f}")
