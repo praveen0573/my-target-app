@@ -99,6 +99,28 @@ cursor.execute("""
         likes_count INTEGER DEFAULT 0
     )
 """)
+
+# Comments Table
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS post_comments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        post_id INTEGER,
+        user_phone TEXT,
+        comment_text TEXT,
+        created_date TEXT
+    )
+""")
+
+# Bookmarks / Saved Posts Table
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS user_saved_posts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_phone TEXT,
+        post_id INTEGER,
+        saved_date TEXT,
+        UNIQUE(user_phone, post_id)
+    )
+""")
 conn.commit()
 
 def add_column_if_missing(table_name, column_name, col_type):
@@ -134,6 +156,8 @@ if "custom_daily_target" not in st.session_state:
     st.session_state["custom_daily_target"] = 2000.0
 if "selected_ig_mins" not in st.session_state:
     st.session_state["selected_ig_mins"] = 30
+if "feed_view_mode" not in st.session_state:
+    st.session_state["feed_view_mode"] = "all"  # 'all' ya 'saved'
 
 # --- Login Screen ---
 if not st.session_state["logged_user"]:
@@ -298,12 +322,12 @@ st.markdown(f"""
         border: 1px solid rgba(229, 169, 60, 0.3);
         margin-bottom: 20px;
     }}
-    .danger-box {{
-        background: linear-gradient(135deg, #2a0808 0%, #170404 100%);
-        border: 1px solid #ef4444;
-        border-radius: 12px;
-        padding: 18px;
-        margin-bottom: 12px;
+    .comment-bubble {{
+        background: rgba(0, 0, 0, 0.25);
+        padding: 8px 14px;
+        border-radius: 10px;
+        margin-top: 6px;
+        border-left: 3px solid {accent};
     }}
     </style>
 """, unsafe_allow_html=True)
@@ -311,12 +335,12 @@ st.markdown(f"""
 TARGET = 1000000000  # 100 Crore
 
 st.title("👑 100 Crore Wealth Hub")
-st.caption(f"Khata: **{ACTIVE_USER}** | Daily Routine Feed, Reels Detox & 100 Cr Mission")
+st.caption(f"Khata: **{ACTIVE_USER}** | Social Feed, Likes, Comments & Saved Posts")
 
 # Tabs
 tab1, tab_feed, tab_detox, tab_audio, tab_reverse, tab_booster, tab_elite, tab_cal, tab_fire, tab_roundup, tab_tax, tab_ai, tab_wishlist, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab5 = st.tabs([
     "📊 Dashboard", 
-    "🌟 Din-charya & Video",
+    "🌟 Community Feed",
     "🔥 Reels Detox",
     "🎙️ AI Coach",
     "🎯 Reverse Goal",
@@ -400,22 +424,22 @@ while str(check_day) in unique_dates:
     streak += 1
     check_day = check_day - timedelta(days=1)
 
-# ----------------- TAB: DAILY ROUTINE & VIDEO FEED (NEW SOCIAL FEATURE) -----------------
+# ----------------- TAB: COMMUNITY FEED (LIKES, COMMENTS & SAVE POSTS) -----------------
 with tab_feed:
-    st.subheader("🌟 Daily Din-charya & Hustle Video Feed")
-    st.caption("Apna daily kaam, routine aur video share karein — ek doosre ko 100 Cr ke liye inspire karein!")
+    st.subheader("🌟 Community Din-charya & Video Feed")
+    st.caption("Likes karein, Comments karein aur achhi routines ko Save (Bookmark) karein!")
 
+    # Post Creation Expander
     with st.expander("➕ Apni Aaj Ki Din-charya / Video Post Karein", expanded=False):
         with st.form("hustle_post_form", clear_on_submit=True):
-            p_title = st.text_input("Post Heading / Aaj Ka Mukhya Kaam:", placeholder="Jaise: 8 Ghante Work + ₹1500 Profit + 1 Hr Skill")
-            p_desc = st.text_area("Din-charya Ka Vivran (Routine details):", placeholder="Aaj subah se shaam tak kya kiya, kahan se kamai hui aur time kaise bachaya...")
-            
-            p_video = st.file_uploader("Apna Video Upload Karein (MP4 / MOV, Max 50MB):", type=["mp4", "mov", "avi"])
+            p_title = st.text_input("Post Heading:", placeholder="Jaise: 8 Ghante Work + ₹1500 Saving + 1 Hr Skill")
+            p_desc = st.text_area("Din-charya Ka Vivran:", placeholder="Aaj subah se shaam tak kya kiya aur kitni pragati hui...")
+            p_video = st.file_uploader("Video Upload (MP4 / MOV):", type=["mp4", "mov", "avi"])
             submit_post = st.form_submit_button("🚀 Post Share Karein", type="primary")
 
             if submit_post:
                 if not p_title:
-                    st.error("Kripya ek heading zaroor likhein!")
+                    st.error("Kripya heading zaroor dalein!")
                 else:
                     saved_filename = ""
                     if p_video is not None:
@@ -430,25 +454,48 @@ with tab_feed:
                     """, (ACTIVE_USER, today_str, p_title, p_desc, saved_filename))
                     conn.commit()
                     st.balloons()
-                    st.success("Aapki din-charya aur video safalta se post ho gayi!")
+                    st.success("Aapki din-charya aur video post ho gayi!")
                     st.rerun()
 
-    st.write("---")
-    st.markdown("### 📱 Community Hustle Feed (Live Stream):")
+    # Filter: Sabhi Posts vs Meri Saved Posts
+    col_f1, col_f2 = st.columns(2)
+    with col_f1:
+        if st.button("🌐 Sabhi Community Posts Dekhein", use_container_width=True):
+            st.session_state["feed_view_mode"] = "all"
+    with col_f2:
+        if st.button("🔖 Meri Saved (Bookmarked) Posts", use_container_width=True):
+            st.session_state["feed_view_mode"] = "saved"
 
-    posts_df = pd.read_sql_query("SELECT id, user_phone, post_date, post_title, routine_text, video_filename, likes_count FROM community_feed ORDER BY id DESC LIMIT 20", conn)
+    st.write("---")
+
+    if st.session_state["feed_view_mode"] == "saved":
+        st.markdown("### 🔖 Aapki Saved Posts:")
+        posts_df = pd.read_sql_query("""
+            SELECT f.id, f.user_phone, f.post_date, f.post_title, f.routine_text, f.video_filename, f.likes_count 
+            FROM community_feed f
+            INNER JOIN user_saved_posts s ON f.id = s.post_id
+            WHERE s.user_phone = ?
+            ORDER BY s.id DESC
+        """, conn, params=(ACTIVE_USER,))
+    else:
+        st.markdown("### 📱 Latest Hustle Feed:")
+        posts_df = pd.read_sql_query("""
+            SELECT id, user_phone, post_date, post_title, routine_text, video_filename, likes_count 
+            FROM community_feed ORDER BY id DESC LIMIT 25
+        """, conn)
 
     if posts_df.empty:
-        st.info("💡 Abhi tak kisi ne din-charya share nahi ki hai. Upar wale button se pehli post aap karein!")
+        st.info("Koi post nahi mili. Apni pehli din-charya post karein!")
     else:
         for idx, row in posts_df.iterrows():
+            post_id = row['id']
             st.markdown(f"""
             <div class="post-card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <span style="font-weight: bold; color: #e5a93c;">👤 Builder: {row['user_phone'][:5]}*****</span>
-                    <span style="font-size: 0.85rem; color: #94a3b8;">📅 {row['post_date']}</span>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span style="font-weight: bold; color: #e5a93c;">👤 {row['user_phone'][:5]}*****</span>
+                    <span style="font-size: 0.82rem; color: #94a3b8;">📅 {row['post_date']}</span>
                 </div>
-                <h3 style="margin-top: 4px; margin-bottom: 8px; color: #ffffff;">{row['post_title']}</h3>
+                <h3 style="margin: 4px 0 8px 0; color: #ffffff;">{row['post_title']}</h3>
                 <p style="color: #cbd5e1; white-space: pre-wrap; font-size: 0.95rem;">{row['routine_text']}</p>
             </div>
             """, unsafe_allow_html=True)
@@ -457,14 +504,62 @@ with tab_feed:
                 v_path = os.path.join(UPLOADS_DIR, row['video_filename'])
                 if os.path.exists(v_path):
                     st.video(v_path)
-            
-            c_lk1, c_lk2 = st.columns([1, 4])
-            with c_lk1:
-                if st.button(f"🔥 Respect ({row['likes_count']})", key=f"like_{row['id']}"):
-                    cursor.execute("UPDATE community_feed SET likes_count = likes_count + 1 WHERE id = ?", (row['id'],))
+
+            # Action Buttons: Like & Save
+            c_act1, c_act2, c_act3 = st.columns([1.5, 1.5, 3])
+            with c_act1:
+                if st.button(f"❤️ Like ({row['likes_count']})", key=f"like_btn_{post_id}"):
+                    cursor.execute("UPDATE community_feed SET likes_count = likes_count + 1 WHERE id = ?", (post_id,))
                     conn.commit()
                     st.rerun()
-            st.divider()
+
+            with c_act2:
+                # Check if already saved
+                cursor.execute("SELECT id FROM user_saved_posts WHERE user_phone = ? AND post_id = ?", (ACTIVE_USER, post_id))
+                is_saved = cursor.fetchone()
+                if is_saved:
+                    if st.button("❌ Unsave", key=f"unsave_btn_{post_id}"):
+                        cursor.execute("DELETE FROM user_saved_posts WHERE user_phone = ? AND post_id = ?", (ACTIVE_USER, post_id))
+                        conn.commit()
+                        st.rerun()
+                else:
+                    if st.button("🔖 Save", key=f"save_btn_{post_id}"):
+                        cursor.execute("INSERT OR IGNORE INTO user_saved_posts (user_phone, post_id, saved_date) VALUES (?, ?, ?)",
+                                       (ACTIVE_USER, post_id, today_str))
+                        conn.commit()
+                        st.success("Post save ho gayi!")
+                        st.rerun()
+
+            # Comment Section Expander
+            with st.expander(f"💬 Comments dekhein aur likhein"):
+                comments_df = pd.read_sql_query(
+                    "SELECT user_phone, comment_text, created_date FROM post_comments WHERE post_id = ? ORDER BY id ASC", 
+                    conn, params=(post_id,)
+                )
+                if not comments_df.empty:
+                    for _, c_row in comments_df.iterrows():
+                        st.markdown(f"""
+                        <div class="comment-bubble">
+                            <small style="color: #94a3b8;"><b>{c_row['user_phone'][:5]}*****</b> • {c_row['created_date']}</small><br>
+                            <span style="color: #f1f5f9;">{c_row['comment_text']}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.caption("Abhi tak koi comment nahi hai. Pehla comment aap karein!")
+
+                # Add new comment form
+                with st.form(f"comment_form_{post_id}", clear_on_submit=True):
+                    c_input = st.text_input("Apna comment likhein:", placeholder="Zabardast routine bhai...")
+                    if st.form_submit_button("Bhejein 💬"):
+                        if c_input.strip():
+                            cursor.execute("""
+                                INSERT INTO post_comments (post_id, user_phone, comment_text, created_date)
+                                VALUES (?, ?, ?, ?)
+                            """, (post_id, ACTIVE_USER, c_input.strip(), today_str))
+                            conn.commit()
+                            st.rerun()
+
+            st.write("---")
 
 # ----------------- TAB: ANTI-INSTAGRAM REELS DETOX -----------------
 with tab_detox:
@@ -493,7 +588,7 @@ with tab_detox:
     delay_days = (chosen_ig_mins / 15.0)
 
     st.markdown(f"""
-    <div class="danger-box">
+    <div style="background: linear-gradient(135deg, #2a0808 0%, #170404 100%); border: 1px solid #ef4444; border-radius: 12px; padding: 18px; margin-bottom: 12px;">
         <h4 style="color: #ef4444; margin:0;">⚠️ {chosen_ig_mins} MINUTE REELS KA NUKSAAN:</h4>
         <h2 style="color: #ffffff; margin: 8px 0;">₹{lost_money:,.0f} Aaj Barbaad Kiye</h2>
         <p style="color: #fca5a5; margin:0;">
@@ -561,6 +656,7 @@ with tab_audio:
         window.speechSynthesis.cancel();
         var msg = new SpeechSynthesisUtterance("{safe_speech_js}");
         msg.lang = 'hi-IN';
+        msg.rate = 0.95;
         window.speechSynthesis.speak(msg);
     }}
     </script>
@@ -612,7 +708,7 @@ with tab_elite:
     badge_name = "👑 CENTURION MOGUL" if total_networth >= 10000000 else "🐺 LONE HUSTLER"
     st.markdown(f"""
     <div class="vip-card">
-        <h4 style="color: #e5a93c !important; margin: 0;">VERIFIED WEALTH STATUS</h4>
+        <h4 style="color: #e5a93c !important; letter-spacing: 2px; margin: 0;">VERIFIED WEALTH STATUS</h4>
         <h1 style="color: #ffffff !important; font-size: 2.1rem; margin: 10px 0;">{badge_name}</h1>
         <p style="color: #cbd5e0 !important; margin-bottom: 0;">Networth: <b>₹{total_networth:,.0f}</b> | Streak: <b>🔥 {streak} Days</b></p>
     </div>
@@ -726,7 +822,6 @@ with tab1:
     progress_val = min(total_networth / TARGET, 1.0)
     st.write(f"### 🎯 100 Crore Goal Progress: `{progress_val * 100:.6f}%`")
     st.progress(progress_val)
-    st.info(f"💡 100 Crore Target Remaining: ₹{TARGET - total_networth:,.0f}")
 
 # ----------------- TAB 4: ROADMAP -----------------
 with tab4:
