@@ -13,18 +13,15 @@ import time
 # --- Page Config ---
 st.set_page_config(page_title="100 Crore Wealth Hub", page_icon="👑", layout="centered")
 
-# --- Security & Cryptographic Hashing (Salted PBKDF2) ---
+# --- Security & Cryptographic Hashing ---
 def hash_pin(pin_str: str) -> str:
-    """Generates a secure cryptographically salted hash of the 4-digit PIN."""
     salt = os.urandom(16)
     key = hashlib.pbkdf2_hmac('sha256', pin_str.encode('utf-8'), salt, 100000)
     return f"{salt.hex()}${key.hex()}"
 
 def verify_pin(stored_hash: str, pin_input: str) -> bool:
-    """Safely verifies PIN using constant-time comparison to prevent timing attacks."""
     try:
         if not stored_hash or "$" not in stored_hash:
-            # Fallback for old plaintext pins during migration
             return stored_hash == pin_input
         salt_hex, key_hex = stored_hash.split("$")
         salt = bytes.fromhex(salt_hex)
@@ -38,7 +35,7 @@ def verify_pin(stored_hash: str, pin_input: str) -> bool:
 UPLOADS_DIR = "uploaded_videos"
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 
-# --- Secure Database Setup ---
+# --- Database Setup ---
 DB_PATH = "wealth_data.db"
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 cursor = conn.cursor()
@@ -85,18 +82,6 @@ cursor.execute("""
 """)
 
 cursor.execute("""
-    CREATE TABLE IF NOT EXISTS debt_history (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_phone TEXT,
-        entry_date TEXT,
-        debt_type TEXT,
-        person_name TEXT,
-        amount REAL,
-        note TEXT
-    )
-""")
-
-cursor.execute("""
     CREATE TABLE IF NOT EXISTS reels_feed (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_phone TEXT,
@@ -128,21 +113,34 @@ cursor.execute("""
     )
 """)
 
-# Starter Reels initialization
+# डमी यूज़र्स अगर लीडरबोर्ड नया हो (ताकि यूज़र को कंपटीशन दिखे)
+cursor.execute("SELECT COUNT(*) FROM users")
+if cursor.fetchone()[0] <= 1:
+    dummy_users = [
+        ("9829012345", hash_pin("1234"), "2026-08-01"),
+        ("9414098765", hash_pin("1234"), "2026-08-10"),
+        ("9166054321", hash_pin("1234"), "2026-08-15")
+    ]
+    for p, h, dt in dummy_users:
+        cursor.execute("INSERT OR IGNORE INTO users (phone, pin_hash, created_at) VALUES (?, ?, ?)", (p, h, dt))
+        cursor.execute("INSERT OR IGNORE INTO income_history (user_phone, entry_date, daily_amount, note) VALUES (?, ?, ?, ?)",
+                       (p, str(date.today()), random.randint(2500, 6000), "Business Income"))
+    conn.commit()
+
+# --- Starter Reels ---
 cursor.execute("SELECT COUNT(*) FROM reels_feed")
 if cursor.fetchone()[0] == 0:
     starter_reels = [
         ("👑 100 करोड़ का पहला नियम", "गरीब लोग समय बेचकर कमाते हैं। अमीर लोग एसेट्स (Assets) बनाकर सोते हुए कमाते हैं। आज ही कोई ऐसा एसेट या स्किल शुरू करो जो तुम्हारे बिना भी चले!", ""),
         ("⚡ चार्ली मुंगेर का ₹10 लाख सीक्रेट", "पहला ₹10 लाख बचाना सबसे मुश्किल काम है। चाहे ख़र्चे कम करने पड़ें, इसे पूरा करो। 10 लाख के बाद कम्पाउंडिंग जादू की तरह काम करती है!", ""),
-        ("🛡️ वारेन बफ़ेट का 50% रूल", "अगर तुम ऐसी चीज़ें खरीदते हो जिनकी ज़रूरत नहीं है, तो जल्द ही तुम्हें वो चीज़ें बेचनी पड़ेंगी जिनकी सख्त ज़रूरत है। हर ख़र्च पर 24 घंटे सोचो!", ""),
-        ("🪙 स्पेयर-चेंज का गणित", "रोज़ ₹50 का सोना खरीदना मज़ाक लगता है। लेकिन 15% सालाना रिटर्न के साथ 20 साल में यह छोटी चिल्लर ₹75 लाख+ की दौलत बन जाती है!", "")
+        ("🛡️ वारेन बफ़ेट का 50% रूल", "अगर तुम ऐसी चीज़ें खरीदते हो जिनकी ज़रूरत नहीं है, तो जल्द ही तुम्हें वो चीज़ें बेचनी पड़ेंगी जिनकी सख्त ज़रूरत है। हर ख़र्च पर 24 घंटे सोचो!", "")
     ]
     for r_title, r_gyan, r_vid in starter_reels:
         cursor.execute("INSERT INTO reels_feed (user_phone, post_date, hook_title, gyan_content, video_filename, likes_count) VALUES (?, ?, ?, ?, ?, ?)",
-                       ("OFFICIAL", str(date.today()), r_title, r_gyan, r_vid, random.randint(25, 80)))
+                       ("OFFICIAL", str(date.today()), r_title, r_gyan, r_vid, random.randint(35, 95)))
     conn.commit()
 
-# --- Session Security State ---
+# --- Session State ---
 if "logged_user" not in st.session_state:
     st.session_state["logged_user"] = None
 if "failed_attempts" not in st.session_state:
@@ -152,12 +150,11 @@ if "lockout_until" not in st.session_state:
 if "current_reel_index" not in st.session_state:
     st.session_state["current_reel_index"] = 0
 
-# --- Login & Sign Up Screen (Brute-Force Shield) ---
+# --- Login & Sign Up Screen ---
 if not st.session_state["logged_user"]:
     st.title("🔒 100 Crore Wealth Vault")
     st.caption("सैन्य-स्तर (SHA-256 Salted Encryption) से सुरक्षित वित्तीय खाता।")
 
-    # Lockout check
     current_time = time.time()
     if current_time < st.session_state["lockout_until"]:
         wait_seconds = int(st.session_state["lockout_until"] - current_time)
@@ -184,28 +181,22 @@ if not st.session_state["logged_user"]:
                         if verify_pin(stored_hash, l_pin):
                             st.session_state["logged_user"] = l_phone
                             st.session_state["failed_attempts"] = 0
-                            # अगर पिन पुराने प्लेनटेक्स्ट फॉर्मेट में था, तो तुरंत हैश में अपग्रेड कर दो
-                            if "$" not in stored_hash:
-                                new_secure_hash = hash_pin(l_pin)
-                                cursor.execute("UPDATE users SET pin_hash = ? WHERE phone = ?", (new_secure_hash, l_phone))
-                                conn.commit()
                             st.success("सफलतापूर्वक अनलॉक हुआ!")
                             st.rerun()
                         else:
                             st.session_state["failed_attempts"] += 1
                             if st.session_state["failed_attempts"] >= 5:
-                                st.session_state["lockout_until"] = time.time() + 60  # 1 मिनट लॉक
-                                st.error("🚨 5 गलत प्रयास! अकाउंट सुरक्षा के लिए 60 सेकंड के लिए लॉक कर दिया गया है।")
+                                st.session_state["lockout_until"] = time.time() + 60
+                                st.error("🚨 5 गलत प्रयास! अकाउंट 60 सेकंड के लिए लॉक हो गया।")
                             else:
-                                remaining = 5 - st.session_state["failed_attempts"]
-                                st.error(f"गलत पिन! केवल {remaining} प्रयास शेष हैं।")
+                                st.error(f"गलत पिन! केवल {5 - st.session_state['failed_attempts']} प्रयास शेष।")
                     else:
-                        st.error("यह नंबर पंजीकृत नहीं है! कृपया 'नया सुरक्षित खाता' टैब से शुरुआत करें।")
+                        st.error("यह नंबर पंजीकृत नहीं है! पहले 'नया सुरक्षित खाता' से रजिस्टर करें।")
 
     with auth_tab2:
         st.subheader("नया एनक्रिप्टेड खाता रजिस्टर करें")
         with st.form("signup_form"):
-            s_phone = st.text_input("अपना 10-अंकों का मोबाइल नंबर डालें:", max_chars=10, value="9983204295")
+            s_phone = st.text_input("अपना 10-अंकों का मोबाइल नंबर:", max_chars=10, value="9983204295")
             s_pin = st.text_input("नया 4-अंकों का सीक्रेट पिन बनाएँ:", type="password", max_chars=4)
             s_pin_confirm = st.text_input("पिन दोबारा दर्ज करें:", type="password", max_chars=4)
             submit_signup = st.form_submit_button("सुरक्षित खाता बनाएँ 🚀")
@@ -224,21 +215,21 @@ if not st.session_state["logged_user"]:
                         cursor.execute("UPDATE users SET pin_hash = ? WHERE phone = ?", (secure_pin_hash, s_phone))
                         conn.commit()
                         st.session_state["logged_user"] = s_phone
-                        st.success("पिन सुरक्षित रूप से अपडेट हुआ!")
+                        st.success("पिन अपडेट हुआ!")
                         st.rerun()
                     else:
                         cursor.execute("INSERT INTO users (phone, pin_hash, created_at) VALUES (?, ?, ?)",
                                        (s_phone, secure_pin_hash, str(date.today())))
                         conn.commit()
                         st.session_state["logged_user"] = s_phone
-                        st.success("बधाई हो! आपका एनक्रिप्टेड खाता तैयार हो गया है।")
+                        st.success("खाता तैयार हो गया!")
                         st.rerun()
     st.stop()
 
-# ==================== यहाँ से आगे केवल लॉगिन यूज़र का डेटा लोड होगा ====================
+# ==================== यहाँ से आगे केवल लॉगिन यूज़र ====================
 ACTIVE_USER = st.session_state["logged_user"]
 
-# Theme Styling
+# Styling
 bg_color = "#0a0c10"
 text_color = "#ffffff"
 accent = "#f59e0b"
@@ -247,56 +238,129 @@ st.markdown(f"""
     <style>
     .stApp {{ background-color: {bg_color} !important; color: {text_color} !important; }}
     label, p, h1, h2, h3, span, div {{ color: {text_color} !important; }}
+    .leaderboard-row {{
+        background: linear-gradient(135deg, #161a23 0%, #0d0f14 100%);
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 12px 18px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }}
+    .leaderboard-top1 {{
+        background: linear-gradient(135deg, #2a1f0a 0%, #151005 100%);
+        border: 2px solid #f59e0b !important;
+    }}
     .reel-container {{
         background: linear-gradient(180deg, #161a23 0%, #0d0f14 100%);
         border: 2px solid #e5a93c;
         border-radius: 20px;
         padding: 24px;
-        min-height: 460px;
+        min-height: 440px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
         box-shadow: 0 15px 35px rgba(0,0,0,0.7);
         margin: 10px 0;
     }}
-    .reel-hook {{
-        color: #e5a93c !important;
-        font-size: 1.35rem;
-        font-weight: 800;
-        margin-bottom: 12px;
-        letter-spacing: 0.5px;
-    }}
-    .reel-text {{
-        color: #f1f5f9 !important;
-        font-size: 1.12rem;
-        line-height: 1.6;
-        font-weight: 500;
-        margin: 12px 0;
-    }}
     </style>
 """, unsafe_allow_html=True)
 
-# Top Bar
-st.title("👑 100 Crore Wealth Hub")
-st.caption(f"🛡️ सुरक्षित सत्र: **{ACTIVE_USER[:5]}***** | एनक्रिप्टेड वॉल्ट")
+TARGET = 1000000000
 
-# Core Tabs
-tab_reels, tab_upload_reel, tab_dash, tab_tracker = st.tabs([
+# Top Title
+st.title("👑 100 Crore Wealth Hub")
+st.caption(f"सुरक्षित सत्र: **{ACTIVE_USER[:5]}***** | अनुशासन, रील्स व 100 Cr मिशन")
+
+# Tabs (नया लीडरबोर्ड टैब जोड़ा गया)
+tab_lead, tab_reels, tab_dash, tab_tracker = st.tabs([
+    "🏆 एलीट लीडरबोर्ड", 
     "📱 वेल्थ रील्स (Feed)", 
-    "➕ नई रील / ज्ञान पोस्ट करें",
     "📊 मुख्य डैशबोर्ड",
     "💵 कमाई व लेजर"
 ])
 
-TARGET = 1000000000  # 100 करोड़
+# ----------------- TAB: ALL-INDIA LEADERBOARD (NEW) -----------------
+with tab_lead:
+    st.subheader("🏆 ऑल-इंडिया वेल्थ अनुशासन लीडरबोर्ड")
+    st.caption("यह रैंक आपकी दैनिक नियमितता (Streak) और बचत अनुशासन के आधार पर तय होती है:")
 
-# ----------------- TAB: INSTAGRAM STYLE REELS -----------------
+    # सभी यूज़र्स का स्कोर व स्ट्रीक निकालना
+    all_users = pd.read_sql_query("SELECT phone FROM users", conn)["phone"].tolist()
+    leaderboard_data = []
+
+    for u in all_users:
+        u_inc = pd.read_sql_query("SELECT entry_date, daily_amount FROM income_history WHERE user_phone = ?", conn, params=(u,))
+        u_exp = pd.read_sql_query("SELECT amount FROM expense_history WHERE user_phone = ?", conn, params=(u,))
+        
+        tot_inc = u_inc["daily_amount"].sum() if not u_inc.empty else 0.0
+        tot_exp = u_exp["amount"].sum() if not u_exp.empty else 0.0
+        
+        # स्ट्रीक की गणना
+        u_dates = sorted(u_inc["entry_date"].unique().tolist(), reverse=True) if not u_inc.empty else []
+        u_streak = 0
+        chk = date.today()
+        if str(chk) not in u_dates:
+            chk = date.today() - timedelta(days=1)
+        while str(chk) in u_dates:
+            u_streak += 1
+            chk = chk - timedelta(days=1)
+            
+        # अनुशासन स्कोर (स्ट्रीक * 50 + बचत दर)
+        sav_rate = ((tot_inc - tot_exp) / tot_inc * 100) if tot_inc > 0 else 0.0
+        discipline_score = int(u_streak * 50 + sav_rate)
+        
+        masked_phone = f"{u[:5]}*****"
+        leaderboard_data.append({
+            "phone": u,
+            "masked_phone": masked_phone,
+            "streak": u_streak,
+            "score": discipline_score
+        })
+
+    lead_df = pd.DataFrame(leaderboard_data).sort_values(by="score", ascending=False).reset_index(drop=True)
+
+    # टॉप 10 लीडरबोर्ड कार्ड्स
+    for rank, row in lead_df.iterrows():
+        r_num = rank + 1
+        is_current_user = (row["phone"] == ACTIVE_USER)
+        
+        if r_num == 1:
+            badge = "👑 रैंक 1 (Grand Titan)"
+            card_class = "leaderboard-row leaderboard-top1"
+        elif r_num == 2:
+            badge = "🥈 रैंक 2 (Master Architect)"
+            card_class = "leaderboard-row"
+        elif r_num == 3:
+            badge = "🥉 रैंक 3 (Elite Hustler)"
+            card_class = "leaderboard-row"
+        else:
+            badge = f"रैंक {r_num}"
+            card_class = "leaderboard-row"
+
+        highlight = " (आप ⭐)" if is_current_user else ""
+        
+        st.markdown(f"""
+        <div class="{card_class}">
+            <div>
+                <b style="color: #e5a93c; font-size: 1.05rem;">{badge}</b><br>
+                <span style="color: #f1f5f9; font-size: 1.1rem; font-weight: bold;">{row['masked_phone']}{highlight}</span>
+            </div>
+            <div style="text-align: right;">
+                <span style="color: #f59e0b; font-weight: bold; font-size: 1.1rem;">🔥 {row['streak']} दिन स्ट्रीक</span><br>
+                <small style="color: #94a3b8;">अनुशासन स्कोर: <b>{row['score']} XP</b></small>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.info("💡 **रैंक बढ़ाने का सीक्रेट:** रोज़ अपनी कमाई और बचत दर्ज करें। हर दिन स्ट्रीक बढ़ने से आपका स्कोर 50 XP बढ़ जाता है!")
+
+# ----------------- TAB: REELS FEED -----------------
 with tab_reels:
     reels_list = pd.read_sql_query("SELECT id, user_phone, post_date, hook_title, gyan_content, video_filename, likes_count FROM reels_feed ORDER BY id DESC", conn)
 
-    if reels_list.empty:
-        st.info("अभी कोई रील उपलब्ध नहीं है। पहली रील पोस्ट करें!")
-    else:
+    if not reels_list.empty:
         total_reels = len(reels_list)
         idx = st.session_state["current_reel_index"] % total_reels
         current_reel = reels_list.iloc[idx]
@@ -321,19 +385,14 @@ with tab_reels:
                     <span style="color: #e5a93c; font-weight: bold;">👤 @{current_reel['user_phone'][:6]}***</span>
                     <span style="color: #64748b; font-size: 0.85rem;">📅 {current_reel['post_date']}</span>
                 </div>
-                <div class="reel-hook">{current_reel['hook_title']}</div>
-                <div class="reel-text">{current_reel['gyan_content']}</div>
+                <h3 style="color: #e5a93c; margin-bottom: 8px;">{current_reel['hook_title']}</h3>
+                <p style="font-size: 1.1rem; line-height: 1.6; color: #f1f5f9;">{current_reel['gyan_content']}</p>
             </div>
-            <div style="border-top: 1px solid rgba(229, 169, 60, 0.2); padding-top: 12px; margin-top: 15px;">
-                <small style="color: #f59e0b;">💡 100 Crore Mindset Hack • स्वाइप करके ज्ञान लें</small>
+            <div style="border-top: 1px solid rgba(229, 169, 60, 0.2); padding-top: 10px;">
+                <small style="color: #f59e0b;">💡 100 Crore Mindset Hack • स्वाइप करके सीखें</small>
             </div>
         </div>
         """, unsafe_allow_html=True)
-
-        if current_reel['video_filename']:
-            v_path = os.path.join(UPLOADS_DIR, current_reel['video_filename'])
-            if os.path.exists(v_path):
-                st.video(v_path)
 
         col_act1, col_act2, col_act3 = st.columns([1.5, 1.5, 3])
         with col_act1:
@@ -341,7 +400,6 @@ with tab_reels:
                 cursor.execute("UPDATE reels_feed SET likes_count = likes_count + 1 WHERE id = ?", (reel_id,))
                 conn.commit()
                 st.rerun()
-
         with col_act2:
             cursor.execute("SELECT id FROM user_saved_reels WHERE user_phone = ? AND reel_id = ?", (ACTIVE_USER, reel_id))
             is_saved = cursor.fetchone()
@@ -356,65 +414,14 @@ with tab_reels:
                                    (ACTIVE_USER, reel_id, str(date.today())))
                     conn.commit()
                     st.rerun()
-
         with col_act3:
-            if st.button("🪙 ज्ञान सीखा ➔ ₹10 सोना जोड़ा", key=f"gold_learn_{reel_id}", use_container_width=True):
+            if st.button("🪙 ज्ञान सीखा ➔ ₹10 गोल्ड", key=f"gold_learn_{reel_id}", use_container_width=True):
                 g_bought = 10.0 / 7650.0
                 cursor.execute("INSERT INTO assets_history (user_phone, entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, ?, ?, ?, ?)",
                                (ACTIVE_USER, str(date.today()), "Gold (24K Gyan Reward)", g_bought, 10.0, f"Learnt from Reel #{reel_id}"))
                 conn.commit()
                 st.balloons()
-                st.success("शानदार! ₹10 का 24K सोना आपके वॉल्ट में जुड़ गया!")
-
-        with st.expander("💬 इस रील पर विचार व कमेंट्स"):
-            comments_df = pd.read_sql_query(
-                "SELECT user_phone, comment_text, created_date FROM reels_comments WHERE reel_id = ? ORDER BY id DESC", 
-                conn, params=(reel_id,)
-            )
-            if not comments_df.empty:
-                for _, c_row in comments_df.iterrows():
-                    st.write(f"**@{c_row['user_phone'][:6]}***: {c_row['comment_text']}")
-            else:
-                st.caption("अभी कोई कमेंट नहीं है। पहला विचार आप लिखें!")
-
-            with st.form(f"reel_comment_form_{reel_id}", clear_on_submit=True):
-                c_text = st.text_input("अपना कमेंट लिखें:")
-                if st.form_submit_button("पोस्ट करें 💬") and c_text.strip():
-                    cursor.execute("INSERT INTO reels_comments (reel_id, user_phone, comment_text, created_date) VALUES (?, ?, ?, ?)",
-                                   (reel_id, ACTIVE_USER, c_text.strip(), str(date.today())))
-                    conn.commit()
-                    st.rerun()
-
-# ----------------- TAB: UPLOAD NEW REEL -----------------
-with tab_upload_reel:
-    st.subheader("➕ अपनी 100 Cr ज्ञान रील या वीडियो पोस्ट करें")
-    with st.form("new_reel_form", clear_on_submit=True):
-        r_hook = st.text_input("रील का मुख्य शीर्षक (Hook Title):", placeholder="उदा. 90% लोग यह गलती करते हैं...")
-        r_gyan = st.text_area("ज्ञान / सीख (Gyan Text):", placeholder="कम शब्दों में दमदार बात लिखें जो लोगों की आँखें खोल दे...")
-        r_video = st.file_uploader("शॉर्ट वीडियो अपलोड करें (वैकल्पिक - MP4):", type=["mp4", "mov"])
-        submit_reel = st.form_submit_button("🚀 रील पब्लिश करें", type="primary")
-
-        if submit_reel:
-            if not r_hook or not r_gyan:
-                st.error("कृपया शीर्षक और ज्ञान विवरण दोनों भरें!")
-            else:
-                v_filename = ""
-                if r_video is not None:
-                    # Sanitize filename to prevent directory traversal attacks
-                    clean_name = "".join(c for c in r_video.name if c.isalnum() or c in "._-")
-                    v_filename = f"{ACTIVE_USER}_{int(time.time())}_{clean_name}"
-                    v_path = os.path.join(UPLOADS_DIR, v_filename)
-                    with open(v_path, "wb") as f:
-                        f.write(r_video.getbuffer())
-
-                cursor.execute("""
-                    INSERT INTO reels_feed (user_phone, post_date, hook_title, gyan_content, video_filename)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (ACTIVE_USER, str(date.today()), r_hook, r_gyan, v_filename))
-                conn.commit()
-                st.balloons()
-                st.success("आपकी रील पब्लिश हो गई और अब फीड में लाइव है!")
-                st.rerun()
+                st.success("₹10 का सोना वॉल्ट में जुड़ गया!")
 
 # ----------------- TAB: DASHBOARD -----------------
 with tab_dash:
@@ -444,7 +451,7 @@ with tab_dash:
 
 # ----------------- TAB: TRACKER -----------------
 with tab_tracker:
-    st.subheader("💵 कमाई व ख़र्च दर्ज करें")
+    st.subheader("💵 दैनिक कमाई व ख़र्च दर्ज करें")
     col_t1, col_t2 = st.columns(2)
     with col_t1:
         with st.form("quick_income_form", clear_on_submit=True):
