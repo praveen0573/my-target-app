@@ -82,6 +82,15 @@ cursor.execute("""
         cost REAL
     )
 """)
+
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS user_loot_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_phone TEXT,
+        loot_date TEXT,
+        nugget TEXT
+    )
+""")
 conn.commit()
 
 def add_column_if_missing(table_name, column_name, col_type):
@@ -282,17 +291,25 @@ st.markdown(f"""
         text-align: center;
         margin-bottom: 12px;
     }}
+    .danger-box {{
+        background: linear-gradient(135deg, #2a0808 0%, #170404 100%);
+        border: 1px solid #ef4444;
+        border-radius: 12px;
+        padding: 18px;
+        margin-bottom: 12px;
+    }}
     </style>
 """, unsafe_allow_html=True)
 
 TARGET = 1000000000  # 100 Crore
 
 st.title("👑 100 Crore Wealth Hub")
-st.caption(f"खाता: **{ACTIVE_USER}** | ऑडियो कोच, रिवर्स-इंजीनियरिंग व 100 Cr मिशन")
+st.caption(f"खाता: **{ACTIVE_USER}** | एंटी-इंस्टाग्राम डिटॉक्स, ऑडियो कोच व 100 Cr मिशन")
 
 # Tabs
-tab1, tab_audio, tab_reverse, tab_booster, tab_elite, tab_cal, tab_fire, tab_roundup, tab_tax, tab_ai, tab_wishlist, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab5 = st.tabs([
+tab1, tab_detox, tab_audio, tab_reverse, tab_booster, tab_elite, tab_cal, tab_fire, tab_roundup, tab_tax, tab_ai, tab_wishlist, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab5 = st.tabs([
     "📊 डैशबोर्ड", 
+    "🔥 रील्स डिटॉक्स",
     "🎙️ AI वेल्थ कोच",
     "🎯 रिवर्स लक्ष्य इंजन",
     "⚡ स्पीड बूस्टर",
@@ -375,11 +392,82 @@ while str(check_day) in unique_dates:
     streak += 1
     check_day = check_day - timedelta(days=1)
 
-# ----------------- TAB: AI VOICE COACH (NEW & ENGAGING) -----------------
+# ----------------- TAB: ANTI-INSTAGRAM REELS DETOX (SUPER ADDICTIVE & POWERFUL) -----------------
+with tab_detox:
+    st.subheader("🔥 एंटी-इंस्टाग्राम डिटॉक्स व डेली वेल्थ चेस्ट")
+    st.caption("इंस्टाग्राम पर दूसरों को अमीर बनाने के बजाय, यहाँ हर सेकंड अपने ₹100 करोड़ बनाएँ!")
+
+    # 1. इंस्टाग्राम बर्न कैलकुलेटर
+    st.markdown("### ⏱️ इंस्टाग्राम टाइम = कितना पैसा जलाया?")
+    ig_mins = st.slider("आज आपने इंस्टाग्राम/रील्स पर कितने मिनट बिताए?", min_value=0, max_value=180, value=30, step=10)
+    
+    # अगर 1 घंटे का मूल्य ₹250 माना जाए (और 15% कम्पाउंडिंग)
+    hourly_opp_cost = 300.0  # ₹300/घंटा की स्किल/कमाई क्षमता
+    lost_money = (ig_mins / 60.0) * hourly_opp_cost
+    compounded_lost_10yr = lost_money * ((1 + 0.15)**10)
+
+    st.markdown(f"""
+    <div class="danger-box">
+        <h4 style="color: #ef4444; margin:0;">⚠️ रील स्क्रॉलिंग का वास्तविक नुकसान:</h4>
+        <h2 style="color: #ffffff; margin: 8px 0;">₹{lost_money:,.0f} आज जला दिए</h2>
+        <p style="color: #fca5a5; margin:0;">
+            10 साल की कम्पाउंडिंग में यह नुकसान <b>₹{compounded_lost_10yr:,.0f}</b> के बराबर है!<br>
+            आपका 100 करोड़ का लक्ष्य लगभग <b>{(ig_mins/15):.1f} दिन पीछे</b> चला गया।
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 2. 1-क्लिक रिडेम्पशन (रील छोड़ो, गोल्ड जोड़ो)
+    st.write("#### 🛡️ तुरंत भरपाई करें (Quick Wealth Swap):")
+    col_sw1, col_sw2 = st.columns(2)
+    with col_sw1:
+        if st.button("🟡 मैंने 15 मिनट रील छोड़ी ➔ ₹20 गोल्ड में बचाए!", use_container_width=True, key="btn_swap_gold"):
+            g_bought = 20.0 / 7650.0
+            cursor.execute("INSERT INTO assets_history (user_phone, entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, ?, ?, ?, ?)",
+                           (ACTIVE_USER, today_str, "Gold (24K Detox Reward)", g_bought, 20.0, "Saved from IG Doomscrolling"))
+            conn.commit()
+            st.balloons()
+            st.success("शानदार इच्छाशक्ति! ₹20 का 24K डिजिटल सोना आपके खाते में जुड़ गया!")
+            st.rerun()
+    with col_sw2:
+        st.info("💡 जब भी रील्स खोलने का मन करे, यह बटन दबाएँ और अपना स्वाभिमान बढ़ाएँ।")
+
+    # 3. 24 घंटे में सिर्फ़ 1 बार खुलने वाला गोल्डन चेस्ट (Dopamine Mystery Loot)
+    st.divider()
+    st.markdown("### 🎁 आज का सीक्रेट वेल्थ चेस्ट (Daily Mystery Loot)")
+    st.caption("दिन में सिर्फ़ एक बार खुलेगा। हर रोज़ एक नया गुप्त अरबपति माइंडसेट हैक:")
+
+    cursor.execute("SELECT loot_date, nugget FROM user_loot_log WHERE user_phone = ? AND loot_date = ?", (ACTIVE_USER, today_str))
+    today_loot = cursor.fetchone()
+
+    secret_nuggets = [
+        "👑 **नेवल रविकांत का नियम:** 'किराए पर अपना समय मत बेचो। संपत्ति, कोड या मीडिया बनाओ जो तुम्हारे सोते समय भी कमाए!'",
+        "⚡ **चार्ली मुंगेर का सिद्धांत:** 'पहला ₹1 लाख या ₹10 लाख बचाना बहुत कठिन है, चाहे कुछ भी हो जाए, फ़िज़ूल ख़र्च काट कर इसे पूरा करो। उसके बाद कम्पाउंडिंग का पहिया खुद घूमता है!'",
+        "🛡️ **वारेन बफ़ेट का नियम नं. 1:** 'पूँजी कभी मत गँवाओ।' नियम नं. 2: 'नियम नं. 1 को कभी मत भूलो!'",
+        "🔥 **रॉबर्ट कियोसाकी का भेद:** 'अमीर लोग संपत्तियां (Assets) खरीदते हैं, मध्यवर्ग ऐसी देनदारियां (Liabilities) खरीदता है जिन्हें वे संपत्ति समझते हैं।'",
+        "💎 **गोल्डन सीक्रेट:** 'अगर आप हर रोज़ केवल 1 अतिरिक्त ग्राहक या ₹500 का नया कैशफ़्लो जोड़ते हैं, तो 100 करोड़ का लक्ष्य 80% आसान हो जाता है!'"
+    ]
+
+    if today_loot:
+        st.success("✅ **आज का चेस्ट अनलॉक हो चुका है:**")
+        st.markdown(f"""
+        <div class="vip-card" style="text-align: left; border-color: #38bdf8;">
+            {today_loot[1]}
+        </div>
+        """, unsafe_allow_html=True)
+        st.caption("अगला मिस्ट्री चेस्ट कल सुबह 6:00 AM अनलॉक होगा।")
+    else:
+        if st.button("🔓 आज का गोल्डन चेस्ट अनलॉक करें (Open Chest)", type="primary", use_container_width=True, key="btn_open_chest"):
+            chosen_nugget = random.choice(secret_nuggets)
+            cursor.execute("INSERT INTO user_loot_log (user_phone, loot_date, nugget) VALUES (?, ?, ?)",
+                           (ACTIVE_USER, today_str, chosen_nugget))
+            conn.commit()
+            st.balloons()
+            st.rerun()
+
+# ----------------- TAB: AI VOICE COACH -----------------
 with tab_audio:
     st.subheader("🎙️ AI वेल्थ वॉइस कोच व डेली ऑडियो अफर्मेशन")
-    st.caption("सुनकर अपने सबकॉन्शियस माइंड को 100 करोड़ के वित्तीय अनुशासन के लिए तैयार करें:")
-
     coach_mode = st.radio("ऑडियो मोड चुनें:", [
         "⚡ दैनिक अनुशासन (Hustle & Focus Mode)",
         "👑 एलीट माइंडसेट (Billionaire Mindset Mode)",
@@ -387,20 +475,18 @@ with tab_audio:
     ], horizontal=True)
 
     if "दैनिक अनुशासन" in coach_mode:
-        speech_text = f"नमस्कार! 100 करोड़ की यात्रा में आपका स्वागत है। आपकी वर्तमान नेटवर्थ ₹{total_networth:,.0f} है। याद रखिए, दौलत किसी एक बड़े जैकपॉट से नहीं, बल्कि रोज़ ₹1,000 की नई कमाई जोड़ने और फ़ालतू ख़र्च रोकने से बनती है। आज के दैनिक लक्ष्य पर अडिग रहें!"
+        speech_text = f"नमस्कार! 100 करोड़ की यात्रा में आपका स्वागत है। आपकी वर्तमान नेटवर्थ ₹{total_networth:,.0f} है। याद रखिए, दौलत किसी एक बड़े जैकपॉट से नहीं, बल्कि रोज़ ₹1,000 की नई कमाई जोड़ने और फ़ालतू ख़र्च रोकने से बनती है।"
     elif "एलीट माइंडसेट" in coach_mode:
-        speech_text = f"दुनिया के शीर्ष 1 प्रतिशत लोग पैसे के लिए काम नहीं करते, पैसा उनके लिए काम करता है। आपका ₹{total_assets:,.0f} का एसेट पोर्टफोलियो चौबीसों घंटे बढ़ रहा है। कम्पाउंडिंग पर भरोसा रखें और धैर्य बनाए रखें।"
+        speech_text = f"दुनिया के शीर्ष 1 प्रतिशत लोग पैसे के लिए काम नहीं करते, पैसा उनके लिए काम करता है। आपका ₹{total_assets:,.0f} का एसेट पोर्टफोलियो चौबीसों घंटे बढ़ रहा है। कम्पाउंडिंग पर भरोसा रखें।"
     else:
-        speech_text = f"वित्तीय स्थिरता का सबसे बड़ा नियम है शांत रहना। यदि बाज़ार गिरता भी है, तो आपका हार्ड एसेट और सोना आपके अभेद्य किले हैं। अपनी बचत दर 50 प्रतिशत से ऊपर रखें और अनावश्यक देनदारियों से बचें।"
+        speech_text = f"वित्तीय स्थिरता का सबसे बड़ा नियम है शांत रहना। यदि बाज़ार गिरता भी है, तो आपका हार्ड एसेट और सोना आपके अभेद्य किले हैं। अपनी बचत दर 50 प्रतिशत से ऊपर रखें।"
 
     st.markdown(f"""
     <div class="metric-box" style="text-align: left;">
-        <b>📜 आज का वॉइस संदेश:</b><br>
-        <i>"{speech_text}"</i>
+        <b>📜 आज का वॉइस संदेश:</b><br><i>"{speech_text}"</i>
     </div>
     """, unsafe_allow_html=True)
 
-    # In-Browser Web Speech Synthesis
     safe_speech_js = speech_text.replace('"', '\\"').replace('\n', ' ')
     audio_html = f"""
     <div style="text-align: center; margin-top: 15px;">
@@ -423,117 +509,58 @@ with tab_audio:
     </script>
     """
     st.components.v1.html(audio_html, height=80)
-    st.caption("💡 टिप: अपने फ़ोन की आवाज़ तेज़ रखें और 'ऑडियो कोच सुनें' बटन दबाएँ!")
 
 # ----------------- TAB: TARGET REVERSE-ENGINE -----------------
 with tab_reverse:
     st.subheader("🎯 ₹100 करोड़ का रिवर्स-गणित व दैनिक एक्शन प्लान")
-    st.caption("100 करोड़ के लक्ष्य को छोटे, साफ़ और आसान दैनिक नंबरों में तोड़ें:")
-
-    st.write("**आप 100 करोड़ कितने साल में हासिल करना चाहते हैं? बटन दबाएँ:**")
     col_hz1, col_hz2, col_hz3, col_hz4 = st.columns(4)
     with col_hz1:
-        if st.button("⏱️ 10 साल में", use_container_width=True, key="rev_10"):
-            st.session_state["reverse_horizon_yrs"] = 10
+        if st.button("⏱️ 10 साल में", use_container_width=True, key="rev_10"): st.session_state["reverse_horizon_yrs"] = 10
     with col_hz2:
-        if st.button("⏱️ 15 साल में", use_container_width=True, key="rev_15"):
-            st.session_state["reverse_horizon_yrs"] = 15
+        if st.button("⏱️ 15 साल में", use_container_width=True, key="rev_15"): st.session_state["reverse_horizon_yrs"] = 15
     with col_hz3:
-        if st.button("⏱️ 20 साल में", use_container_width=True, key="rev_20"):
-            st.session_state["reverse_horizon_yrs"] = 20
+        if st.button("⏱️ 20 साल में", use_container_width=True, key="rev_20"): st.session_state["reverse_horizon_yrs"] = 20
     with col_hz4:
-        if st.button("⏱️ 25 साल में", use_container_width=True, key="rev_25"):
-            st.session_state["reverse_horizon_yrs"] = 25
+        if st.button("⏱️ 25 साल में", use_container_width=True, key="rev_25"): st.session_state["reverse_horizon_yrs"] = 25
 
     selected_yrs = st.session_state["reverse_horizon_yrs"]
     remaining_goal = max(TARGET - total_networth, 0.0)
-
     r_mo = 0.15 / 12
     n_mo = selected_yrs * 12
     fv_from_current = total_networth * ((1 + 0.15)**selected_yrs)
     needed_from_sip = max(TARGET - fv_from_current, 0.0)
-    
     denom = ((1 + r_mo)**n_mo - 1)
-    if denom > 0:
-        required_monthly = (needed_from_sip * r_mo) / denom
-    else:
-        required_monthly = remaining_goal / n_mo
-
+    required_monthly = (needed_from_sip * r_mo) / denom if denom > 0 else (remaining_goal / n_mo)
     required_daily = required_monthly / 30
     required_yearly = required_monthly * 12
 
-    st.write(f"### 📍 **{selected_yrs} वर्षों** में 100 करोड़ तक पहुँचने का प्लान:")
-    
+    st.write(f"### 📍 **{selected_yrs} वर्षों** में 100 करोड़ का प्लान:")
     col_rv1, col_rv2, col_rv3 = st.columns(3)
-    with col_rv1:
-        st.metric("सालाना बचत / निवेश", f"₹{required_yearly:,.0f} / वर्ष")
-    with col_rv2:
-        st.metric("मासिक बचत लक्ष्य", f"₹{required_monthly:,.0f} / माह")
-    with col_rv3:
-        st.metric("दैनिक आवश्यक कमाई 🎯", f"₹{required_daily:,.0f} / दिन")
+    with col_rv1: st.metric("सालाना बचत / निवेश", f"₹{required_yearly:,.0f} / वर्ष")
+    with col_rv2: st.metric("मासिक बचत लक्ष्य", f"₹{required_monthly:,.0f} / माह")
+    with col_rv3: st.metric("दैनिक आवश्यक कमाई 🎯", f"₹{required_daily:,.0f} / दिन")
 
     if st.button(f"📌 आज का दैनिक लक्ष्य ₹{required_daily:,.0f} सेट करें", key="btn_sync_goal", type="primary"):
         st.session_state["custom_daily_target"] = round(required_daily)
-        st.success(f"शानदार! आपका दैनिक अनुशासन लक्ष्य ₹{required_daily:,.0f} पर सेट हो गया!")
-
-    st.divider()
-    st.markdown("#### 🏢 इस दैनिक लक्ष्य को पूरा करने के 3 बिज़नेस रास्ते:")
-    b_col1, b_col2, b_col3 = st.columns(3)
-    with b_col1:
-        units_500 = math.ceil(required_monthly / 500)
-        st.markdown(f"""
-        <div class="metric-box">
-            <b>📦 ₹500 का प्रॉडक्ट</b><br>
-            माह में चाहिए: <b>{units_500:,} ग्राहक</b><br>
-            <small>(ई-कॉमर्स / डिजिटल टूल्स)</small>
-        </div>
-        """, unsafe_allow_html=True)
-    with b_col2:
-        units_5000 = math.ceil(required_monthly / 5000)
-        st.markdown(f"""
-        <div class="metric-box">
-            <b>💼 ₹5,000 की सर्विस</b><br>
-            माह में चाहिए: <b>{units_5000:,} क्लाइंट्स</b><br>
-            <small>(लोकल SEO / डिजिटल एजेंसी)</small>
-        </div>
-        """, unsafe_allow_html=True)
-    with b_col3:
-        units_50000 = math.ceil(required_monthly / 50000)
-        st.markdown(f"""
-        <div class="metric-box">
-            <b>🤝 ₹50,000 की हाई-टिकट डील</b><br>
-            माह में चाहिए: <b>{units_50000:,} क्लाइंट्स</b><br>
-            <small>(कॉन्ट्रैक्ट्स / B2B कंसल्टिंग)</small>
-        </div>
-        """, unsafe_allow_html=True)
+        st.success(f"शानदार! दैनिक लक्ष्य ₹{required_daily:,.0f} सेट हो गया!")
 
 # ----------------- TAB: SPEED BOOSTER -----------------
 with tab_booster:
     st.subheader("⚡ 100 करोड़ स्पीड एक्सीलरेटर (Wealth Multiplier)")
-    st.caption("हज़ारों साल का इंतज़ार खत्म: 2 छोटे फ़ाइनेंशियल फ़ैसले जो 100 करोड़ को आपकी ज़िंदगी में खींच लाएँगे!")
-
     base_daily = cash_df["Raqam (₹)"].mean() if not cash_df.empty else 500.0
-    if base_daily <= 0:
-        base_daily = 500.0
-
+    if base_daily <= 0: base_daily = 500.0
     raw_years = ((TARGET - total_networth) / base_daily) / 365
     st.markdown(f"#### 🐢 वर्तमान धीमी गति: **₹{base_daily:,.0f} / दिन** (समय लगेगा: ~{raw_years:.0f} वर्ष)")
-
-    st.write("---")
-    st.write("### 🚀 नीचे दिए गए बूस्टर्स को चालू (ON) करके जादू देखें:")
 
     c_b1, c_b2 = st.columns(2)
     with c_b1:
         st.session_state["boost_hustle"] = st.checkbox("🔥 बूस्टर 1: डिजिटल साइड-वर्क (+₹1,000/दिन)", value=st.session_state["boost_hustle"])
-        st.caption("फ़्रीलांसिंग, डिजिटल स्किल या साइड बिज़नेस से रोज़ का अतिरिक्त कैश।")
     with c_b2:
         st.session_state["boost_cut"] = st.checkbox("✂️ बूस्टर 2: ज़ीरो-वेस्ट ख़र्च कटिंग (+₹300/दिन)", value=st.session_state["boost_cut"])
-        st.caption("चाय, पेट्रोल व गैर-ज़रूरी छोटे ख़र्चों से बचाकर सोने में जमा करना।")
 
     added_daily = 0.0
     if st.session_state["boost_hustle"]: added_daily += 1000.0
     if st.session_state["boost_cut"]: added_daily += 300.0
-
     new_daily = base_daily + added_daily
     new_monthly_saving = new_daily * 30
 
@@ -545,19 +572,12 @@ with tab_booster:
         accelerated_years = 15.0
 
     col_acc1, col_acc2 = st.columns(2)
-    with col_acc1:
-        st.metric("नई बूस्टेड दैनिक कमाई", f"₹{new_daily:,.0f} / दिन", delta=f"+₹{added_daily:,.0f}")
-    with col_acc2:
-        st.metric("100 करोड़ पहुँचने का नया समय 👑", f"केवल {accelerated_years:.1f} वर्ष!")
-
-    years_saved = max(raw_years - accelerated_years, 0.0)
-    st.success(f"🎉 **अविश्वसनीय छलांग:** इन 2 छोटे बूस्टर्स ने आपकी ज़िंदगी के लगभग **{years_saved:,.0f} वर्ष बचा लिए**!")
+    with col_acc1: st.metric("नई बूस्टेड दैनिक कमाई", f"₹{new_daily:,.0f} / दिन", delta=f"+₹{added_daily:,.0f}")
+    with col_acc2: st.metric("100 करोड़ पहुँचने का नया समय 👑", f"केवल {accelerated_years:.1f} वर्ष!")
 
 # ----------------- TAB: ELITE 1% CLUB & CARD DOWNLOAD -----------------
 with tab_elite:
     st.subheader("👑 The Top 1% Wealth Club & Future Time-Machine")
-    st.caption("जानिए आप देश और दुनिया में किस स्तर पर खड़े हैं:")
-
     if total_networth >= 100000000:
         percentile = "Top 0.01% Titan"
         badge_name = "🔱 SHADOW TITAN"
@@ -611,64 +631,14 @@ with tab_elite:
         key="btn_dl_flex_png"
     )
 
-    st.divider()
-    st.subheader("⏳ Future Time-Machine (1-Click Future Prediction)")
-    st.write("**कितने साल आगे का भविष्य देखना है? नीचे बटन दबाएँ:**")
-
-    c_btn1, c_btn2, c_btn3, c_btn4 = st.columns(4)
-    with c_btn1:
-        if st.button("🚀 3 साल बाद", use_container_width=True, key="btn_yr_3"):
-            st.session_state["selected_future_yrs"] = 3
-    with c_btn2:
-        if st.button("🚀 5 साल बाद", use_container_width=True, key="btn_yr_5"):
-            st.session_state["selected_future_yrs"] = 5
-    with c_btn3:
-        if st.button("🚀 10 साल बाद", use_container_width=True, key="btn_yr_10"):
-            st.session_state["selected_future_yrs"] = 10
-    with c_btn4:
-        if st.button("👑 15 साल बाद", use_container_width=True, key="btn_yr_15"):
-            st.session_state["selected_future_yrs"] = 15
-
-    chosen_yrs = st.session_state["selected_future_yrs"]
-    current_year = date.today().year
-    future_year = current_year + chosen_yrs
-    
-    monthly_runrate = max(month_net_savings, 5000.0)
-    r_mo_tm = 0.15 / 12
-    n_mo_tm = chosen_yrs * 12
-    future_val = (total_networth * ((1 + 0.15)**chosen_yrs)) + (monthly_runrate * (((1 + r_mo_tm)**n_mo_tm - 1) / r_mo_tm))
-    future_passive_mo = (future_val * 0.05) / 12
-
-    st.write(f"### 🔮 वर्ष **{future_year}** ({chosen_yrs} साल बाद) का प्रेडिक्शन:")
-    col_tm1, col_tm2 = st.columns(2)
-    with col_tm1:
-        st.metric(f"वर्ष {future_year} में नेटवर्थ 💰", f"₹{future_val:,.0f}")
-    with col_tm2:
-        st.metric(f"पैसिव सैलरी 🌴", f"₹{future_passive_mo:,.0f} / माह")
-
 # ----------------- TAB: CALENDAR -----------------
 with tab_cal:
     st.subheader("📅 दैनिक वित्तीय कैलेंडर व डायरी")
     sel_cal_date = st.date_input("तारीख चुनें:", value=date.today(), key="wealth_cal_picker")
     sel_date_str = str(sel_cal_date)
 
-    day_inc = 0.0
-    day_exp = 0.0
-    day_inc_df = pd.DataFrame()
-    day_exp_df = pd.DataFrame()
-    day_asset_df = pd.DataFrame()
-
-    if not cash_df.empty:
-        day_inc_df = cash_df[cash_df["Tariqh"] == sel_date_str]
-        day_inc = day_inc_df["Raqam (₹)"].sum()
-
-    if not exp_df.empty:
-        day_exp_df = exp_df[exp_df["Tariqh"] == sel_date_str]
-        day_exp = day_exp_df["Raqam (₹)"].sum()
-
-    if not asset_df.empty:
-        day_asset_df = asset_df[asset_df["Tariqh"] == sel_date_str]
-
+    day_inc = cash_df[cash_df["Tariqh"] == sel_date_str]["Raqam (₹)"].sum() if not cash_df.empty else 0.0
+    day_exp = exp_df[exp_df["Tariqh"] == sel_date_str]["Raqam (₹)"].sum() if not exp_df.empty else 0.0
     day_net = day_inc - day_exp
 
     col_cd1, col_cd2, col_cd3 = st.columns(3)
@@ -676,36 +646,13 @@ with tab_cal:
     with col_cd2: st.metric("उस दिन का ख़र्च", f"₹{day_exp:,.0f}")
     with col_cd3: st.metric("शुद्ध दैनिक बचत", f"₹{day_net:,.0f}", delta=f"{day_net:+,.0f}")
 
-    st.divider()
-    c_tab1, c_tab2, c_tab3 = st.tabs(["💵 कमाई एंट्रियां", "💸 ख़र्च एंट्रियां", "🥇 संपत्तियां/सोना"])
-    with c_tab1:
-        if not day_inc_df.empty: st.dataframe(day_inc_df.drop(columns=["id"]), use_container_width=True)
-        else: st.info("इस तारीख को कोई कमाई दर्ज नहीं हुई थी।")
-    with c_tab2:
-        if not day_exp_df.empty: st.dataframe(day_exp_df.drop(columns=["id"]), use_container_width=True)
-        else: st.info("इस तारीख को कोई ख़र्च दर्ज नहीं हुआ था।")
-    with c_tab3:
-        if not day_asset_df.empty: st.dataframe(day_asset_df.drop(columns=["id"]), use_container_width=True)
-        else: st.info("इस तारीख को कोई नई संपत्ति नहीं जोड़ी गई थी।")
-
 # ----------------- TAB: PASSIVE FIRE FREEDOM ENGINE -----------------
 with tab_fire:
     st.subheader("🌴 पैसिव कैशफ़्लो व वित्तीय आज़ादी इंजन")
     withdrawal_rate = 4.0
     annual_passive = total_networth * (withdrawal_rate / 100)
     monthly_passive = annual_passive / 12
-    daily_passive = annual_passive / 365
     st.metric("वर्तमान शुद्ध पैसिव इनकम", f"₹{monthly_passive:,.0f} / महीना")
-    st.caption(f"रोज़ाना बिना काम किए: **₹{daily_passive:,.0f} / दिन**")
-
-    st.divider()
-    t_annual_passive = TARGET * (withdrawal_rate / 100)
-    t_monthly_passive = t_annual_passive / 12
-    t_daily_passive = t_annual_passive / 365
-    col_tw1, col_tw2, col_tw3 = st.columns(3)
-    with col_tw1: st.metric("सालाना पैसिव कैश", f"₹{t_annual_passive/10000000:.1f} करोड़/वर्ष")
-    with col_tw2: st.metric("मासिक पैसिव सैलरी", f"₹{t_monthly_passive/100000:.1f} लाख/माह")
-    with col_tw3: st.metric("प्रतिदिन पैसिव आवक", f"₹{t_daily_passive:,.0f}/दिन")
 
 # ----------------- TAB: TAX & CLEAN IN-HAND -----------------
 with tab_tax:
@@ -737,7 +684,7 @@ with tab_roundup:
                            (ACTIVE_USER, today_str, "Gold (24K Round-up)", grams_bought, spare_change, f"UPI Round-up on ₹{spend_amt} spend"))
             conn.commit()
             st.balloons()
-            st.success(f"शानदार! ₹{spare_change:.0f} का सोना ({grams_bought:.4f} ग्राम) जुड़ गया!")
+            st.success(f"शानदार! ₹{spare_change:.0f} का सोना जुड़ गया!")
             st.rerun()
 
     with col_ru2:
@@ -814,9 +761,7 @@ with tab2:
         with col_b: daily_income = st.number_input("रकम (₹ में)", min_value=0.0, step=500.0)
         col_cat1, col_cat2 = st.columns(2)
         with col_cat1:
-            income_category = st.selectbox("स्रोत", [
-                "Business", "Daily Savings", "Trading/Investment", "Side Hustle", "Other"
-            ])
+            income_category = st.selectbox("स्रोत", ["Business", "Daily Savings", "Trading/Investment", "Side Hustle", "Other"])
         with col_cat2: custom_note = st.text_input("नोट", value="")
         final_note = f"[{income_category}] {custom_note}".strip()
         submit_cash = st.form_submit_button("💾 कमाई सेव करें")
