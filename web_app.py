@@ -113,6 +113,10 @@ if "boost_hustle" not in st.session_state:
     st.session_state["boost_hustle"] = False
 if "boost_cut" not in st.session_state:
     st.session_state["boost_cut"] = False
+if "reverse_horizon_yrs" not in st.session_state:
+    st.session_state["reverse_horizon_yrs"] = 15
+if "custom_daily_target" not in st.session_state:
+    st.session_state["custom_daily_target"] = 2000.0
 
 # --- Login Screen ---
 if not st.session_state["logged_user"]:
@@ -270,17 +274,26 @@ st.markdown(f"""
         text-align: center;
         box-shadow: 0 10px 30px rgba(229, 169, 60, 0.2);
     }}
+    .metric-box {{
+        background-color: {tab_bg};
+        border-radius: 12px;
+        padding: 16px;
+        border: 1px solid rgba(245, 158, 11, 0.3);
+        text-align: center;
+        margin-bottom: 12px;
+    }}
     </style>
 """, unsafe_allow_html=True)
 
 TARGET = 1000000000  # 100 Crore
 
 st.title("👑 100 Crore Wealth Hub")
-st.caption(f"खाता: **{ACTIVE_USER}** | टॉप 1% वेल्थ क्लब व स्पीड एक्सीलरेटर")
+st.caption(f"खाता: **{ACTIVE_USER}** | रिवर्स-इंजीनियरिंग, स्पीड बूस्टर व 100 Cr मिशन")
 
 # Tabs
-tab1, tab_booster, tab_elite, tab_cal, tab_fire, tab_roundup, tab_tax, tab_ai, tab_wishlist, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4 = st.tabs([
+tab1, tab_reverse, tab_booster, tab_elite, tab_cal, tab_fire, tab_roundup, tab_tax, tab_ai, tab_wishlist, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab5 = st.tabs([
     "📊 डैशबोर्ड", 
+    "🎯 रिवर्स लक्ष्य इंजन",
     "⚡ स्पीड बूस्टर",
     "👑 टॉप 1% क्लब",
     "📅 कैलेंडर",
@@ -296,7 +309,8 @@ tab1, tab_booster, tab_elite, tab_cal, tab_fire, tab_roundup, tab_tax, tab_ai, t
     "🩺 वेल्थ स्कोर",
     "📈 बचत दर", 
     "🥇 गोल्ड व एसेट्स", 
-    "🚀 100 Cr रोडमैप"
+    "🚀 100 Cr रोडमैप",
+    "🔥 दैनिक अनुशासन"
 ])
 
 # ----------------- Safe Data Query -----------------
@@ -360,6 +374,93 @@ while str(check_day) in unique_dates:
     streak += 1
     check_day = check_day - timedelta(days=1)
 
+# ----------------- TAB: TARGET REVERSE-ENGINE (NEW & POWERFUL) -----------------
+with tab_reverse:
+    st.subheader("🎯 ₹100 करोड़ का रिवर्स-गणित व दैनिक एक्शन प्लान")
+    st.caption("100 करोड़ के लक्ष्य को छोटे, साफ़ और आसान दैनिक नंबरों में तोड़ें:")
+
+    st.write("**आप 100 करोड़ कितने साल में हासिल करना चाहते हैं? बटन दबाएँ:**")
+    col_hz1, col_hz2, col_hz3, col_hz4 = st.columns(4)
+    with col_hz1:
+        if st.button("⏱️ 10 साल में", use_container_width=True, key="rev_10"):
+            st.session_state["reverse_horizon_yrs"] = 10
+    with col_hz2:
+        if st.button("⏱️ 15 साल में", use_container_width=True, key="rev_15"):
+            st.session_state["reverse_horizon_yrs"] = 15
+    with col_hz3:
+        if st.button("⏱️ 20 साल में", use_container_width=True, key="rev_20"):
+            st.session_state["reverse_horizon_yrs"] = 20
+    with col_hz4:
+        if st.button("⏱️ 25 साल में", use_container_width=True, key="rev_25"):
+            st.session_state["reverse_horizon_yrs"] = 25
+
+    selected_yrs = st.session_state["reverse_horizon_yrs"]
+    remaining_goal = max(TARGET - total_networth, 0.0)
+
+    # 15% सालाना रिटर्न पर कम्पाउंडिंग रिवर्स गणना
+    r_mo = 0.15 / 12
+    n_mo = selected_yrs * 12
+    # FV = P*(1+r)^n + PMT * [((1+r)^n - 1)/r]
+    # PMT = (FV - P*(1+r)^n) * r / ((1+r)^n - 1)
+    fv_from_current = total_networth * ((1 + 0.15)**selected_yrs)
+    needed_from_sip = max(TARGET - fv_from_current, 0.0)
+    
+    denom = ((1 + r_mo)**n_mo - 1)
+    if denom > 0:
+        required_monthly = (needed_from_sip * r_mo) / denom
+    else:
+        required_monthly = remaining_goal / n_mo
+
+    required_daily = required_monthly / 30
+    required_yearly = required_monthly * 12
+
+    st.write(f"### 📍 **{selected_yrs} वर्षों** में 100 करोड़ तक पहुँचने का प्लान:")
+    
+    col_rv1, col_rv2, col_rv3 = st.columns(3)
+    with col_rv1:
+        st.metric("सालाना बचत / निवेश", f"₹{required_yearly:,.0f} / वर्ष")
+    with col_rv2:
+        st.metric("मासिक बचत लक्ष्य", f"₹{required_monthly:,.0f} / माह")
+    with col_rv3:
+        st.metric("दैनिक आवश्यक कमाई 🎯", f"₹{required_daily:,.0f} / दिन")
+
+    if st.button(f"📌 आज का दैनिक लक्ष्य ₹{required_daily:,.0f} सेट करें", key="btn_sync_goal", type="primary"):
+        st.session_state["custom_daily_target"] = round(required_daily)
+        st.success(f"शानदार! आपका दैनिक अनुशासन लक्ष्य ₹{required_daily:,.0f} पर सेट हो गया!")
+
+    st.divider()
+    st.markdown("#### 🏢 इस दैनिक लक्ष्य को पूरा करने के 3 बिज़नेस रास्ते:")
+    st.caption("100 करोड़ कभी केवल एक तनख्वाह से नहीं बनता, यह वॉल्यूम और वैल्यू से बनता है:")
+
+    b_col1, b_col2, b_col3 = st.columns(3)
+    with b_col1:
+        units_500 = math.ceil(required_monthly / 500)
+        st.markdown(f"""
+        <div class="metric-box">
+            <b>📦 ₹500 का प्रॉडक्ट</b><br>
+            माह में चाहिए: <b>{units_500:,} ग्राहक</b><br>
+            <small>(ई-कॉमर्स / डिजिटल टूल्स)</small>
+        </div>
+        """, unsafe_allow_html=True)
+    with b_col2:
+        units_5000 = math.ceil(required_monthly / 5000)
+        st.markdown(f"""
+        <div class="metric-box">
+            <b>💼 ₹5,000 की सर्विस</b><br>
+            माह में चाहिए: <b>{units_5000:,} क्लाइंट्स</b><br>
+            <small>(लोकल SEO / डिजिटल एजेंसी)</small>
+        </div>
+        """, unsafe_allow_html=True)
+    with b_col3:
+        units_50000 = math.ceil(required_monthly / 50000)
+        st.markdown(f"""
+        <div class="metric-box">
+            <b>🤝 ₹50,000 की हाई-टिकट डील</b><br>
+            माह में चाहिए: <b>{units_50000:,} क्लाइंट्स</b><br>
+            <small>(कॉन्ट्रैक्ट्स / B2B कंसल्टिंग)</small>
+        </div>
+        """, unsafe_allow_html=True)
+
 # ----------------- TAB: SPEED BOOSTER -----------------
 with tab_booster:
     st.subheader("⚡ 100 करोड़ स्पीड एक्सीलरेटर (Wealth Multiplier)")
@@ -390,9 +491,9 @@ with tab_booster:
     new_daily = base_daily + added_daily
     new_monthly_saving = new_daily * 30
 
-    r_mo = 0.15 / 12
+    r_mo_b = 0.15 / 12
     try:
-        n_months = math.log(((TARGET - total_networth) * r_mo / new_monthly_saving) + 1) / math.log(1 + r_mo)
+        n_months = math.log(((TARGET - total_networth) * r_mo_b / new_monthly_saving) + 1) / math.log(1 + r_mo_b)
         accelerated_years = n_months / 12
     except Exception:
         accelerated_years = 15.0
@@ -440,11 +541,9 @@ with tab_elite:
     </div>
     """, unsafe_allow_html=True)
 
-    # 1-CLICK HD IMAGE GENERATION (PIL)
     def generate_flex_image(badge, streak_days, rank_text):
         img = Image.new('RGB', (800, 450), color=(18, 20, 26))
         draw = ImageDraw.Draw(img)
-        # Gold Border
         draw.rectangle([15, 15, 785, 435], outline=(229, 169, 60), width=4)
         draw.text((400, 70), "100 CRORE WEALTH CLUB", fill=(229, 169, 60), anchor="mm")
         draw.text((400, 160), badge, fill=(255, 255, 255), anchor="mm")
@@ -465,7 +564,6 @@ with tab_elite:
         mime="image/png",
         key="btn_dl_flex_png"
     )
-    st.caption("👉 इसे सीधे WhatsApp Status, Instagram Story या Reel में शेयर करें!")
 
     st.divider()
     st.subheader("⏳ Future Time-Machine (1-Click Future Prediction)")
@@ -490,9 +588,9 @@ with tab_elite:
     future_year = current_year + chosen_yrs
     
     monthly_runrate = max(month_net_savings, 5000.0)
-    r_mo = 0.15 / 12
-    n_mo = chosen_yrs * 12
-    future_val = (total_networth * ((1 + 0.15)**chosen_yrs)) + (monthly_runrate * (((1 + r_mo)**n_mo - 1) / r_mo))
+    r_mo_tm = 0.15 / 12
+    n_mo_tm = chosen_yrs * 12
+    future_val = (total_networth * ((1 + 0.15)**chosen_yrs)) + (monthly_runrate * (((1 + r_mo_tm)**n_mo_tm - 1) / r_mo_tm))
     future_passive_mo = (future_val * 0.05) / 12
 
     st.write(f"### 🔮 वर्ष **{future_year}** ({chosen_yrs} साल बाद) का प्रेडिक्शन:")
@@ -850,3 +948,24 @@ with tab4:
             diff = target_amt - total_networth
             pct = min((total_networth / target_amt) * 100, 100.0)
             st.warning(f"⏳ **{name}** — `{pct:.2f}%` done (₹{diff:,.0f} to go)")
+
+# ----------------- TAB 5: DAILY DISCIPLINE (SYNCED) -----------------
+with tab5:
+    st.subheader("🔥 दैनिक अनुशासन व स्ट्राइक ट्रैकर")
+    today_savings = 0.0
+    if not cash_df.empty:
+        today_rows = cash_df[cash_df["Tariqh"] == today_str]
+        today_savings = today_rows["Raqam (₹)"].sum()
+
+    col_d1, col_d2 = st.columns(2)
+    with col_d1:
+        current_target = st.number_input("दैनिक कमाई का लक्ष्य (₹):", min_value=100.0, value=float(st.session_state["custom_daily_target"]), step=500.0)
+    with col_d2:
+        st.metric("आज की कमाई", f"₹{today_savings:,.0f}")
+
+    daily_prog = min(today_savings / current_target, 1.0) if current_target > 0 else 0.0
+    st.write(f"### आज का अनुशासन प्रोग्रेस: `{daily_prog * 100:.1f}%`")
+    st.progress(daily_prog)
+    if daily_prog >= 1.0:
+        st.balloons()
+        st.success("🔥 शानदार! आज का दैनिक लक्ष्य पूरा हुआ!")
