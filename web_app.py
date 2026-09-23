@@ -85,7 +85,7 @@ cursor.execute("""
 """)
 conn.commit()
 
-# --- ऑटो-माइग्रेशन: पुराने डेटाबेस में user_phone कॉलम जोड़ना ---
+# --- ऑटो-माइग्रेशन ---
 def add_column_if_missing(table_name, column_name, col_type):
     try:
         cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {col_type}")
@@ -325,6 +325,21 @@ total_networth = max(total_net_cash + total_assets + total_receivables - total_l
 savings_rate = ((total_gross_income - total_expenses) / total_gross_income * 100) if total_gross_income > 0 else 0.0
 
 today_str = str(date.today())
+current_month_prefix = today_str[:7]  # YYYY-MM
+
+# इस महीने की गणना
+month_inc = 0.0
+month_exp = 0.0
+if not cash_df.empty:
+    m_inc_rows = cash_df[cash_df["तारीख"].str.startswith(current_month_prefix)]
+    month_inc = m_inc_rows["रकम (₹)"].sum()
+
+if not exp_df.empty:
+    m_exp_rows = exp_df[exp_df["तारीख"].str.startswith(current_month_prefix)]
+    month_exp = m_exp_rows["रकम (₹)"].sum()
+
+month_net_savings = max(month_inc - month_exp, 0.0)
+
 unique_dates = sorted(cash_df["तारीख"].unique().tolist(), reverse=True) if not cash_df.empty else []
 streak = 0
 check_day = date.today()
@@ -697,6 +712,17 @@ with tab1:
     st.write(f"### 🎯 100 करोड़ लक्ष्य प्रोग्रेस: `{progress_val * 100:.6f}%`")
     st.progress(progress_val)
     st.info(f"💡 100 करोड़ के लक्ष्य में अभी ₹{TARGET - total_networth:,.0f} शेष हैं।")
+
+    # इस महीने का क्लोजिंग स्नैपशॉट
+    st.divider()
+    st.subheader("📅 इस महीने का वित्तीय स्नैपशॉट (Current Month)")
+    col_mo1, col_mo2, col_mo3 = st.columns(3)
+    with col_mo1:
+        st.metric("इस माह की कमाई", f"₹{month_inc:,.0f}")
+    with col_mo2:
+        st.metric("इस माह का ख़र्च", f"₹{month_exp:,.0f}")
+    with col_mo3:
+        st.metric("इस माह की शुद्ध बचत", f"₹{month_net_savings:,.0f}")
 
     st.divider()
     def generate_wealth_pdf():
