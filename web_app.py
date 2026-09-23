@@ -81,7 +81,6 @@ cursor.execute("""
     )
 """)
 
-# Squad Groups Table
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS wealth_squads (
         squad_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -92,7 +91,6 @@ cursor.execute("""
     )
 """)
 
-# Squad Members Table
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS squad_members (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -124,6 +122,21 @@ cursor.execute("""
         UNIQUE(user_phone, reel_id)
     )
 """)
+
+# Daily Spin Challenge Table
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS daily_challenges (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_phone TEXT,
+        challenge_date TEXT,
+        task_text TEXT,
+        reward_type TEXT,
+        reward_val REAL,
+        is_completed INTEGER DEFAULT 0,
+        UNIQUE(user_phone, challenge_date)
+    )
+""")
+conn.commit()
 
 # Starter Reels
 cursor.execute("SELECT COUNT(*) FROM reels_feed")
@@ -235,22 +248,22 @@ st.markdown(f"""
     <style>
     .stApp {{ background-color: {bg_color} !important; color: {text_color} !important; }}
     label, p, h1, h2, h3, span, div {{ color: {text_color} !important; }}
-    .squad-card {{
-        background: linear-gradient(135deg, #182234 0%, #0e1626 100%);
-        border: 2px solid #38bdf8;
-        border-radius: 16px;
-        padding: 20px;
-        margin-bottom: 16px;
+    .spin-box {{
+        background: linear-gradient(135deg, #1f1b2e 0%, #110d1a 100%);
+        border: 2px solid #a855f7;
+        border-radius: 18px;
+        padding: 24px;
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(168, 85, 247, 0.25);
+        margin-bottom: 20px;
     }}
-    .member-row {{
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 10px;
-        padding: 10px 15px;
-        margin-top: 8px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+    .task-card {{
+        background: #171d2b;
+        border: 1px solid #38bdf8;
+        border-radius: 14px;
+        padding: 18px;
+        margin-top: 15px;
+        text-align: left;
     }}
     </style>
 """, unsafe_allow_html=True)
@@ -258,10 +271,11 @@ st.markdown(f"""
 TARGET = 1000000000
 
 st.title("👑 100 Crore Wealth Hub")
-st.caption(f"यूज़र: **{ACTIVE_USER[:5]}***** | वेल्थ स्क्वाड व 100 Cr मिशन")
+st.caption(f"यूज़र: **{ACTIVE_USER[:5]}***** | डेली वेल्थ स्पिन, स्क्वाड व 100 Cr मिशन")
 
 # Tabs
-tab_squad, tab_lead, tab_reels, tab_dash, tab_tracker = st.tabs([
+tab_spin, tab_squad, tab_lead, tab_reels, tab_dash, tab_tracker = st.tabs([
+    "🎯 डेली वेल्थ स्पिन",
     "👥 वेल्थ स्क्वाड",
     "🏆 एलीट लीडरबोर्ड", 
     "📱 वेल्थ रील्स (Feed)", 
@@ -269,12 +283,82 @@ tab_squad, tab_lead, tab_reels, tab_dash, tab_tracker = st.tabs([
     "💵 कमाई व लेजर"
 ])
 
-# ----------------- TAB: WEALTH SQUAD (5 DOSTON KA GROUP) -----------------
+# ----------------- TAB: DAILY WEALTH SPIN & CHALLENGE (NEW) -----------------
+with tab_spin:
+    st.subheader("🎯 डेली वेल्थ रूले व सीक्रेट चैलेंज")
+    st.caption("दिन में सिर्फ़ 1 बार स्पिन करें—आज का टास्क पूरा करके XP और गोल्ड कमाएँ!")
+
+    today_str = str(date.today())
+    cursor.execute("SELECT id, task_text, reward_type, reward_val, is_completed FROM daily_challenges WHERE user_phone = ? AND challenge_date = ?", (ACTIVE_USER, today_str))
+    today_challenge = cursor.fetchone()
+
+    available_tasks = [
+        ("☕ ज़ीरो-वेस्ट चाय/नाश्ता मिशन: आज बाहर कोई फ़ालतू ख़र्च नहीं करना!", "GOLD", 20.0),
+        ("📚 60 मिनट डीप वर्क: आज 1 घंटा बिना सोशल मीडिया के अपने हुनर/काम पर ध्यान दें!", "XP", 150.0),
+        ("🪙 चिल्लर बचत: आज अपने वॉलेट से ₹30 बचाकर सीधे डिजिटल गोल्ड में लॉक करें!", "GOLD", 30.0),
+        ("🤝 1 नया कस्टमर आउटरीच: आज अपने बिज़नेस/काम के लिए 1 नए व्यक्ति से संपर्क करें!", "XP", 200.0),
+        ("✂️ ख़र्च ऑडिट: आज रात सोने से पहले दिन भर का एक-एक रुपया ऐप में दर्ज करें!", "XP", 100.0)
+    ]
+
+    if not today_challenge:
+        st.markdown("""
+        <div class="spin-box">
+            <h2 style="color: #a855f7; margin-bottom: 6px;">🎰 आज का वेल्थ व्हील अनलॉक करें</h2>
+            <p style="color: #cbd5e1; font-size: 1.05rem;">स्पिन बटन दबाते ही आज का सीक्रेट चैलेंज स्क्रीन पर खुलेगा।</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if st.button("🎡 स्पिन करें (Spin The Wheel)", type="primary", use_container_width=True, key="btn_spin_wheel"):
+            chosen = random.choice(available_tasks)
+            cursor.execute("""
+                INSERT INTO daily_challenges (user_phone, challenge_date, task_text, reward_type, reward_val, is_completed)
+                VALUES (?, ?, ?, ?, ?, 0)
+            """, (ACTIVE_USER, today_str, chosen[0], chosen[1], chosen[2]))
+            conn.commit()
+            st.rerun()
+
+    else:
+        c_id, t_text, r_type, r_val, is_done = today_challenge
+
+        if is_done == 1:
+            st.success("🎉 **बधाई! आपने आज का वेल्थ चैलेंज पूरा कर लिया है!**")
+            st.markdown(f"""
+            <div class="task-card" style="border-color: #22c55e;">
+                <h4 style="color: #22c55e; margin:0;">✅ मिशन पूर्ण (Completed)</h4>
+                <p style="color: #f1f5f9; font-size: 1.1rem; margin: 8px 0;">{t_text}</p>
+                <small style="color: #94a3b8;">नया चैलेंज कल सुबह 6:00 बजे अनलॉक होगा।</small>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            reward_label = f"₹{r_val:.0f} डिजिटल गोल्ड" if r_type == "GOLD" else f"+{r_val:.0f} लीडरबोर्ड XP"
+            st.markdown(f"""
+            <div class="task-card">
+                <span style="background: #3b0764; border: 1px solid #a855f7; padding: 4px 12px; border-radius: 12px; font-weight: bold; color: #d8b4fe;">
+                    🎁 इनाम: {reward_label}
+                </span>
+                <h3 style="color: #ffffff; margin-top: 14px; margin-bottom: 8px;">आज का वित्तीय मिशन:</h3>
+                <p style="color: #cbd5e1; font-size: 1.15rem; line-height: 1.6;">{t_text}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.write("")
+            if st.button("🏆 मैंने यह चैलेंज पूरा कर लिया (Claim Reward)", type="primary", use_container_width=True, key="btn_claim_task"):
+                cursor.execute("UPDATE daily_challenges SET is_completed = 1 WHERE id = ?", (c_id,))
+                
+                # अगर इनाम गोल्ड था, तो एसेट्स टेबल में जोड़ दो
+                if r_type == "GOLD":
+                    g_bought = r_val / 7650.0
+                    cursor.execute("INSERT INTO assets_history (user_phone, entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, ?, ?, ?, ?)",
+                                   (ACTIVE_USER, today_str, "Gold (24K Challenge Reward)", g_bought, r_val, "Daily Spin Reward"))
+                
+                conn.commit()
+                st.balloons()
+                st.success(f"शानदार इच्छाशक्ति! {reward_label} आपके खाते में जुड़ गया!")
+                st.rerun()
+
+# ----------------- TAB: WEALTH SQUAD -----------------
 with tab_squad:
     st.subheader("👥 5 दोस्तों का सीक्रेट वेल्थ स्क्वाड")
-    st.caption("अकेले बचत करना मुश्किल है, लेकिन जब दोस्त साथ हों तो 100 करोड़ का सफ़र आसान हो जाता है!")
-
-    # यूज़र किस ग्रुप में है?
     cursor.execute("""
         SELECT s.squad_id, s.squad_name, s.squad_code, s.monthly_target 
         FROM wealth_squads s
@@ -284,129 +368,40 @@ with tab_squad:
     user_squad = cursor.fetchone()
 
     if not user_squad:
-        st.info("💡 आप अभी किसी वेल्थ स्क्वाड में शामिल नहीं हैं। नया स्क्वाड बनाएँ या दोस्तों के स्क्वाड कोड से जुड़ें:")
+        st.info("💡 नया स्क्वाड बनाएँ या दोस्त के 4-अंकों के कोड से जुड़ें:")
         col_sq1, col_sq2 = st.columns(2)
         with col_sq1:
             with st.form("create_squad_form", clear_on_submit=True):
                 st.write("#### 🛡️ नया स्क्वाड बनाएँ")
-                sq_name = st.text_input("स्क्वाड का नाम:", placeholder="उदा. रॉयल टाइटन्स")
-                sq_code = st.text_input("4-अंकों का गुप्त कोड रखें:", max_chars=4, placeholder="उदा. 7788")
-                sq_target = st.number_input("ग्रुप का मासिक बचत लक्ष्य (₹):", min_value=5000.0, value=25000.0, step=5000.0)
-                submit_create = st.form_submit_button("ग्रुप बनाएँ 🚀", type="primary")
-
-                if submit_create:
-                    if not sq_name or len(sq_code) != 4:
-                        st.error("कृपया सही नाम और 4-अंकों का कोड डालें!")
-                    else:
-                        try:
-                            cursor.execute("INSERT INTO wealth_squads (squad_name, squad_code, creator_phone, monthly_target) VALUES (?, ?, ?, ?)",
-                                           (sq_name, sq_code, ACTIVE_USER, sq_target))
-                            cursor.execute("INSERT INTO squad_members (squad_code, user_phone, joined_date) VALUES (?, ?, ?)",
-                                           (sq_code, ACTIVE_USER, str(date.today())))
-                            conn.commit()
-                            st.balloons()
-                            st.success(f"बधाई! '{sq_name}' स्क्वाड बन गया!")
-                            st.rerun()
-                        except sqlite3.IntegrityError:
-                            st.error("यह कोड पहले से किसी ग्रुप का है, कृपया दूसरा कोड चुनें!")
-
+                sq_name = st.text_input("स्क्वाड का नाम:")
+                sq_code = st.text_input("4-अंकों का कोड रखें:", max_chars=4)
+                if st.form_submit_button("ग्रुप बनाएँ 🚀") and sq_name and len(sq_code) == 4:
+                    try:
+                        cursor.execute("INSERT INTO wealth_squads (squad_name, squad_code, creator_phone, monthly_target) VALUES (?, ?, ?, 25000.0)",
+                                       (sq_name, sq_code, ACTIVE_USER))
+                        cursor.execute("INSERT INTO squad_members (squad_code, user_phone, joined_date) VALUES (?, ?, ?)",
+                                       (sq_code, ACTIVE_USER, str(date.today())))
+                        conn.commit()
+                        st.rerun()
+                    except Exception:
+                        st.error("यह कोड पहले से उपयोग में है!")
         with col_sq2:
             with st.form("join_squad_form", clear_on_submit=True):
-                st.write("#### 🤝 दोस्त के स्क्वाड में जुड़ें")
-                j_code = st.text_input("दोस्त का 4-अंकों का कोड डालें:", max_chars=4)
-                submit_join = st.form_submit_button("स्क्वाड जॉइन करें ⚡")
-
-                if submit_join:
+                st.write("#### 🤝 स्क्वाड जॉइन करें")
+                j_code = st.text_input("दोस्त का 4-अंकों का कोड:")
+                if st.form_submit_button("जॉइन करें ⚡") and len(j_code) == 4:
                     cursor.execute("SELECT squad_name FROM wealth_squads WHERE squad_code = ?", (j_code,))
-                    sq_found = cursor.fetchone()
-                    if sq_found:
-                        try:
-                            cursor.execute("INSERT INTO squad_members (squad_code, user_phone, joined_date) VALUES (?, ?, ?)",
-                                           (j_code, ACTIVE_USER, str(date.today())))
-                            conn.commit()
-                            st.success(f"आप '{sq_found[0]}' स्क्वाड में शामिल हो गए!")
-                            st.rerun()
-                        except sqlite3.IntegrityError:
-                            st.warning("आप पहले से इस ग्रुप में हैं!")
+                    if cursor.fetchone():
+                        cursor.execute("INSERT OR IGNORE INTO squad_members (squad_code, user_phone, joined_date) VALUES (?, ?, ?)",
+                                       (j_code, ACTIVE_USER, str(date.today())))
+                        conn.commit()
+                        st.rerun()
                     else:
-                        st.error("गलत कोड! ऐसा कोई स्क्वाड नहीं मिला।")
-
+                        st.error("गलत कोड!")
     else:
         s_id, s_name, s_code, s_target = user_squad
-
-        # ग्रुप मेंबर्स और उनके इस महीने के आंकड़े
-        current_m_prefix = str(date.today())[:7]
-        members = pd.read_sql_query("SELECT user_phone FROM squad_members WHERE squad_code = ?", conn, params=(s_code,))["user_phone"].tolist()
-
-        squad_total_saved = 0.0
-        member_stats = []
-
-        for m_phone in members:
-            m_inc = pd.read_sql_query("SELECT daily_amount, entry_date FROM income_history WHERE user_phone = ? AND entry_date LIKE ?", conn, params=(m_phone, f"{current_m_prefix}%"))
-            m_exp = pd.read_sql_query("SELECT amount FROM expense_history WHERE user_phone = ? AND entry_date LIKE ?", conn, params=(m_phone, f"{current_m_prefix}%"))
-            
-            tot_i = m_inc["daily_amount"].sum() if not m_inc.empty else 0.0
-            tot_e = m_exp["amount"].sum() if not m_exp.empty else 0.0
-            net_s = max(tot_i - tot_e, 0.0)
-            squad_total_saved += net_s
-
-            # आखिरी एंट्री तारीख
-            last_entry = m_inc["entry_date"].max() if not m_inc.empty else "कोई एंट्री नहीं"
-            is_active = (last_entry == str(date.today()))
-
-            member_stats.append({
-                "phone": m_phone,
-                "saved": net_s,
-                "is_active": is_active,
-                "last_entry": last_entry
-            })
-
-        member_stats = sorted(member_stats, key=lambda x: x["saved"], reverse=True)
-
-        # स्क्वाड कार्ड
-        st.markdown(f"""
-        <div class="squad-card">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h2 style="color: #38bdf8; margin:0;">🛡️ {s_name}</h2>
-                <span style="background:#0f172a; border:1px solid #38bdf8; padding:4px 12px; border-radius:12px; font-weight:bold; color:#e5a93c;">
-                    कोड: {s_code}
-                </span>
-            </div>
-            <p style="color:#94a3b8; margin: 6px 0 16px 0;">इस कोड को दोस्तों को भेजें ताकि वे सीधे आपके ग्रुप में जुड़ सकें।</p>
-            <div style="margin-top:10px;">
-                <b style="color:#ffffff;">स्क्वाड मिशन: ₹{squad_total_saved:,.0f} / ₹{s_target:,.0f} पूरा</b>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        prog_squad = min(squad_total_saved / s_target, 1.0) if s_target > 0 else 0.0
-        st.progress(prog_squad)
-
-        st.write("---")
-        st.markdown("### 🏆 स्क्वाड मेंबर्स का योगदान (Leaderboard):")
-
-        for idx, m in enumerate(member_stats):
-            m_tag = "👑 स्क्वाड कैप्टन" if idx == 0 else f"मेंबर {idx + 1}"
-            status_text = "🔥 आज एक्टिव" if m["is_active"] else "😴 कल से सुस्त"
-            status_color = "#22c55e" if m["is_active"] else "#ef4444"
-            masked = f"{m['phone'][:5]}*****"
-            me_highlight = " (आप ⭐)" if m["phone"] == ACTIVE_USER else ""
-
-            st.markdown(f"""
-            <div class="member-row">
-                <div>
-                    <span style="color:#e5a93c; font-weight:bold;">{m_tag}</span><br>
-                    <b style="color:#ffffff; font-size:1.05rem;">{masked}{me_highlight}</b>
-                </div>
-                <div style="text-align:right;">
-                    <b style="color:#38bdf8; font-size:1.1rem;">₹{m['saved']:,.0f} बचाया</b><br>
-                    <small style="color:{status_color}; font-weight:bold;">{status_text}</small>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        st.write("")
-        if st.button("🚪 स्क्वाड से बाहर निकलें (Leave Group)"):
+        st.success(f"🛡️ वर्तमान स्क्वाड: **{s_name}** | इनवाइट कोड: `{s_code}`")
+        if st.button("🚪 ग्रुप छोड़ें"):
             cursor.execute("DELETE FROM squad_members WHERE squad_code = ? AND user_phone = ?", (s_code, ACTIVE_USER))
             conn.commit()
             st.rerun()
@@ -426,14 +421,17 @@ with tab_lead:
         u_dates = sorted(u_inc["entry_date"].unique().tolist(), reverse=True) if not u_inc.empty else []
         u_streak = 0
         chk = date.today()
-        if str(chk) not in u_dates:
-            chk = date.today() - timedelta(days=1)
+        if str(chk) not in u_dates: chk = date.today() - timedelta(days=1)
         while str(chk) in u_dates:
             u_streak += 1
             chk = chk - timedelta(days=1)
 
+        # चैलेंज पूरे करने पर बोनस XP
+        cursor.execute("SELECT COUNT(*) FROM daily_challenges WHERE user_phone = ? AND is_completed = 1", (u,))
+        completed_tasks_count = cursor.fetchone()[0]
+
         sav_rate = ((tot_inc - tot_exp) / tot_inc * 100) if tot_inc > 0 else 0.0
-        discipline_score = int(u_streak * 50 + sav_rate)
+        discipline_score = int(u_streak * 50 + sav_rate + (completed_tasks_count * 100))
 
         leaderboard_data.append({
             "phone": u,
@@ -446,21 +444,12 @@ with tab_lead:
 
     for rank, row in lead_df.iterrows():
         r_num = rank + 1
-        badge = f"रैंक {r_num}"
-        if r_num == 1: badge = "👑 रैंक 1 (Grand Titan)"
-        elif r_num == 2: badge = "🥈 रैंक 2 (Master)"
-        elif r_num == 3: badge = "🥉 रैंक 3 (Hustler)"
-
+        badge = "👑 रैंक 1" if r_num == 1 else ("🥈 रैंक 2" if r_num == 2 else ("🥉 रैंक 3" if r_num == 3 else f"रैंक {r_num}"))
+        me = " (आप ⭐)" if row["phone"] == ACTIVE_USER else ""
         st.markdown(f"""
         <div style="background:#161a23; border:1px solid #334155; border-radius:10px; padding:12px; margin-bottom:8px; display:flex; justify-content:space-between;">
-            <div>
-                <b style="color:#e5a93c;">{badge}</b><br>
-                <span>{row['masked_phone']}</span>
-            </div>
-            <div style="text-align:right;">
-                <b style="color:#f59e0b;">🔥 {row['streak']} दिन</b><br>
-                <small style="color:#94a3b8;">{row['score']} XP</small>
-            </div>
+            <div><b style="color:#e5a93c;">{badge}</b><br><span>{row['masked_phone']}{me}</span></div>
+            <div style="text-align:right;"><b style="color:#f59e0b;">🔥 {row['streak']} दिन</b><br><small style="color:#94a3b8;">{row['score']} XP</small></div>
         </div>
         """, unsafe_allow_html=True)
 
