@@ -11,7 +11,7 @@ import urllib.parse
 import math
 
 # --- Page Setup ---
-st.set_page_config(page_title="100 Cr Wealth Vault", page_icon="👑", layout="centered", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="100 Cr Wealth Vault", page_icon="👑", layout="centered")
 
 # --- Security & Crypto Hashing ---
 def hash_pin(pin_str: str) -> str:
@@ -77,55 +77,51 @@ if "logged_user" not in st.session_state: st.session_state["logged_user"] = None
 if "selected_future_yrs" not in st.session_state: st.session_state["selected_future_yrs"] = 5
 if "selected_ig_mins" not in st.session_state: st.session_state["selected_ig_mins"] = 30
 if "reverse_horizon_yrs" not in st.session_state: st.session_state["reverse_horizon_yrs"] = 15
-if "current_reel_index" not in st.session_state: st.session_state["current_reel_index"] = 0
 
-# --- Styling ---
+# Clean Visual Styling
 st.markdown("""
 <style>
     .stApp {
-        background-color: #0b0e14 !important;
-        color: #f8fafc !important;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+        background-color: #0d1117 !important;
+        color: #f0f6fc !important;
     }
-    .app-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 8px 4px 12px 4px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-        margin-bottom: 12px;
+    .hero-card {
+        background: linear-gradient(135deg, #1f1b16 0%, #0d0f12 100%);
+        border: 2px solid #f59e0b;
+        border-radius: 16px;
+        padding: 20px;
+        text-align: center;
+        margin-bottom: 20px;
+        box-shadow: 0 10px 25px rgba(245, 158, 11, 0.2);
+    }
+    .stat-tile {
+        background: #161b22;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 14px;
+        text-align: center;
+        margin-bottom: 10px;
     }
     .app-card {
-        background: linear-gradient(145deg, #151a24 0%, #0e121a 100%);
-        border: 1px solid rgba(229, 169, 60, 0.28);
-        border-radius: 18px;
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 14px;
         padding: 16px;
-        margin-bottom: 14px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-    }
-    .networth-val {
-        color: #f59e0b;
-        font-size: 2.2rem;
-        font-weight: 900;
-        margin: 4px 0 8px 0;
+        margin-bottom: 12px;
     }
     div.stButton > button {
-        border-radius: 12px !important;
+        border-radius: 10px !important;
         font-weight: 700 !important;
-        border: none !important;
-        padding: 8px 14px !important;
     }
-    header[data-testid="stHeader"] { visibility: hidden; height: 0%; }
-    .block-container { padding-top: 1rem !important; padding-bottom: 3rem !important; }
 </style>
 """, unsafe_allow_html=True)
 
 # Login Guard
 if not st.session_state["logged_user"]:
     st.markdown("""
-        <div class="app-card" style="text-align:center; border-color: #f59e0b; margin-top: 20px;">
-            <h1 style="color: #f59e0b; margin:0;">👑 100 CR VAULT</h1>
-            <p style="color: #94a3b8; font-size:0.85rem; margin-top:5px;">Secure Financial Operating System</p>
+        <div class="hero-card" style="margin-top: 10px;">
+            <h1 style="color: #f59e0b; margin:0;">👑 100 CR WEALTH VAULT</h1>
+            <p style="color: #8b949e; font-size:0.9rem; margin-top:5px;">Secure Financial Operating System</p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -154,7 +150,7 @@ if not st.session_state["logged_user"]:
                     conn.commit()
                     st.session_state["logged_user"] = s_phone
                     st.rerun()
-                else: st.error("PIN sahi dalein!")
+                else: st.error("PIN check karein!")
     st.stop()
 
 # ==================== Logged In App ====================
@@ -185,56 +181,68 @@ while str(chk) in unique_dates:
     streak += 1
     chk = chk - timedelta(days=1)
 
-# Header
-st.markdown(f"""
-    <div class="app-header">
-        <div>
-            <span style="font-size: 0.75rem; color:#94a3b8; font-weight:700;">USER VAULT</span><br>
-            <b style="color:#ffffff; font-size:1.05rem;">@{USER[:5]}*****</b>
-        </div>
-        <div style="background: rgba(245, 158, 11, 0.15); border:1px solid #f59e0b; padding:4px 10px; border-radius:14px;">
-            <span style="color:#f59e0b; font-weight:800; font-size:0.8rem;">👑 100 CR CLUB</span>
-        </div>
-    </div>
-""", unsafe_allow_html=True)
+# Header Bar
+c_head1, c_head2 = st.columns([2, 1])
+with c_head1:
+    st.write(f"👤 **Vault:** `@{USER[:5]}*****` | 🔥 **Streak:** `{streak} Days`")
+with c_head2:
+    if st.button("Logout 🔒", use_container_width=True):
+        st.session_state["logged_user"] = None
+        st.rerun()
 
-# ALL 16 TABS RESTORED
+# --- TABS WITH HOME AS FIRST TAB ---
 (
-    tab_dash, tab_reels, tab_games, tab_squad, tab_elite, tab_detox,
+    tab_home, tab_reels, tab_games, tab_squad, tab_elite, tab_detox,
     tab_coach, tab_rev, tab_cal, tab_fire, tab_roundup, tab_tax,
     tab_wish, tab_inc, tab_exp, tab_debt
 ) = st.tabs([
-    "📊 Dashboard", "📱 Reels", "🎲 Ludo & Games", "👥 Squad & Rank", "👑 Top 1%",
+    "🏠 Home", "📱 Reels", "🎲 Ludo & Games", "👥 Squad", "👑 Top 1%",
     "🔥 Detox", "🎙️ AI Coach", "🎯 Reverse Goal", "📅 Calendar", "🌴 Passive FIRE",
     "🪙 UPI Gold", "⚖️ Tax Buffer", "🏎️ Luxury Sim", "💵 Income", "💸 Expenses", "⚖️ Karz & Assets"
 ])
 
-# 1. DASHBOARD
-with tab_dash:
+# ==================== 1. HOME (MUKHYA DASHBOARD) ====================
+with tab_home:
     prog_pct = min((networth / TARGET) * 100, 100.0)
+    
     st.markdown(f"""
-        <div class="app-card" style="border-color: #f59e0b;">
-            <div style="color:#94a3b8; font-size:0.8rem; font-weight:700;">TOTAL NETWORTH</div>
-            <div class="networth-val">₹{networth:,.0f}</div>
-            <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:#94a3b8; margin-bottom:4px;">
-                <span>100 Cr Mission</span>
+        <div class="hero-card">
+            <span style="color:#8b949e; font-size:0.85rem; font-weight:700; text-transform:uppercase; letter-spacing:1px;">TOTAL CLEAN NETWORTH</span>
+            <h1 style="color:#f59e0b; font-size:2.4rem; margin:6px 0; font-weight:900;">₹{networth:,.0f}</h1>
+            <div style="display:flex; justify-content:space-between; font-size:0.85rem; color:#8b949e; margin-top:8px;">
+                <span>🎯 Target: ₹100 Crore</span>
                 <span style="color:#f59e0b; font-weight:bold;">{prog_pct:.6f}%</span>
             </div>
         </div>
     """, unsafe_allow_html=True)
     st.progress(min(networth / TARGET, 1.0))
 
+    # Live Stat Cards
     c1, c2, c3 = st.columns(3)
-    with c1: st.metric("Cash In Hand", f"₹{net_cash:,.0f}")
-    with c2: st.metric("Gold & Assets", f"₹{asset_val:,.0f}")
-    with c3: st.metric("Liabilities", f"₹{tot_liab:,.0f}")
+    with c1:
+        st.markdown(f"""<div class="stat-tile"><small style="color:#8b949e;">CASH IN HAND</small><h3 style="color:#22c55e; margin:4px 0;">₹{net_cash:,.0f}</h3></div>""", unsafe_allow_html=True)
+    with c2:
+        st.markdown(f"""<div class="stat-tile"><small style="color:#8b949e;">GOLD & ASSETS</small><h3 style="color:#eab308; margin:4px 0;">₹{asset_val:,.0f}</h3></div>""", unsafe_allow_html=True)
+    with c3:
+        st.markdown(f"""<div class="stat-tile"><small style="color:#8b949e;">LIABILITIES</small><h3 style="color:#ef4444; margin:4px 0;">₹{tot_liab:,.0f}</h3></div>""", unsafe_allow_html=True)
 
     st.write("---")
-    if st.button("Logout 🔒", key="logout_btn", use_container_width=True):
-        st.session_state["logged_user"] = None
-        st.rerun()
+    st.markdown("#### ⚡ Quick Action Booster")
+    col_q1, col_q2 = st.columns(2)
+    with col_q1:
+        if st.button("🟡 ₹10 Sona Kharidein (1-Tap)", use_container_width=True):
+            cursor.execute("INSERT INTO assets_history (user_phone, entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, 'Gold (24K)', 0.0013, 10.0, 'Home SIP')", (USER, today_str))
+            conn.commit()
+            st.success("₹10 ka 24K Sona jud gaya!")
+            st.rerun()
+    with col_q2:
+        if st.button("🔥 Reels Detox (+₹20 Sona)", use_container_width=True):
+            cursor.execute("INSERT INTO assets_history (user_phone, entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, 'Gold (Detox)', 0.0026, 20.0, 'Detox Reward')", (USER, today_str))
+            conn.commit()
+            st.success("₹20 Gold jud gaya!")
+            st.rerun()
 
-# 2. REELS (FULL WITH UPLOAD & SHARE)
+# ==================== 2. REELS (WITH UPLOAD & SHARE) ====================
 with tab_reels:
     st.markdown("### 📱 100 Cr Wealth Reels & Community")
     with st.expander("➕ Nayi Reel Banayein / Upload Karein", expanded=False):
@@ -252,9 +260,9 @@ with tab_reels:
                             f.write(r_file.getbuffer())
 
                     cursor.execute("INSERT INTO reels_feed (user_phone, post_date, hook_title, gyan_content, video_filename, likes_count) VALUES (?, ?, ?, ?, ?, 0)",
-                                   (USER, str(date.today()), r_title, r_text, saved_fn))
+                                   (USER, today_str, r_title, r_text, saved_fn))
                     conn.commit()
-                    st.toast("Aapki reel publish ho gayi!")
+                    st.success("Aapki reel publish ho gayi!")
                     st.rerun()
                 else: st.error("Title aur text zaroor bharein!")
 
@@ -262,13 +270,13 @@ with tab_reels:
     if not reels.empty:
         for _, r in reels.iterrows():
             st.markdown(f"""
-                <div class="app-card" style="border-color:#e5a93c;">
-                    <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:#94a3b8; margin-bottom:4px;">
-                        <span style="color:#e5a93c; font-weight:bold;">👤 @{r['user_phone'][:5]}*****</span>
+                <div class="app-card">
+                    <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:#8b949e; margin-bottom:4px;">
+                        <span style="color:#f59e0b; font-weight:bold;">👤 @{r['user_phone'][:5]}*****</span>
                         <span>📅 {r['post_date']}</span>
                     </div>
                     <h3 style="color:#f59e0b; margin: 4px 0 8px 0;">{r['hook_title']}</h3>
-                    <p style="font-size:1.02rem; line-height:1.5; color:#f1f5f9;">{r['gyan_content']}</p>
+                    <p style="font-size:1.02rem; line-height:1.5; color:#f0f6fc;">{r['gyan_content']}</p>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -284,16 +292,16 @@ with tab_reels:
                     st.rerun()
             with c_act2:
                 if st.button("🪙 ₹10 Gold", key=f"rg_{r['id']}", use_container_width=True):
-                    cursor.execute("INSERT INTO assets_history (user_phone, entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, 'Gold (Reel Reward)', 0.0013, 10.0, 'Reel Reward')", (USER, str(date.today())))
+                    cursor.execute("INSERT INTO assets_history (user_phone, entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, 'Gold (Reel Reward)', 0.0013, 10.0, 'Reel Reward')", (USER, today_str))
                     conn.commit()
-                    st.toast("₹10 Gold mila!")
+                    st.success("₹10 Gold mila!")
             with c_act3:
                 share_msg = f"🔥 100 Crore Mindset Reel:\n*{r['hook_title']}*\n\n\"{r['gyan_content']}\"\n\nJoin 100 Crore Vault App: https://100-crore-target.streamlit.app"
                 wa_url = f"https://api.whatsapp.com/send?text={urllib.parse.quote(share_msg)}"
-                st.markdown(f'<a href="{wa_url}" target="_blank" style="text-decoration:none;"><button style="width:100%; background:#25D366; color:white; font-weight:bold; border:none; padding:8px; border-radius:12px; cursor:pointer;">📲 WhatsApp Share</button></a>', unsafe_allow_html=True)
+                st.markdown(f'<a href="{wa_url}" target="_blank" style="text-decoration:none;"><button style="width:100%; background:#25D366; color:white; font-weight:bold; border:none; padding:8px; border-radius:10px; cursor:pointer;">📲 WhatsApp Share</button></a>', unsafe_allow_html=True)
             st.write("---")
 
-# 3. GAMES & LUDO
+# ==================== 3. GAMES & LUDO ====================
 with tab_games:
     st.markdown("### 🎲 Online Multi-Player Ludo")
     cursor.execute("""
@@ -312,7 +320,7 @@ with tab_games:
                 if st.form_submit_button("Room Banayein 🎲", use_container_width=True):
                     try:
                         cursor.execute("INSERT INTO ludo_rooms (room_code, room_name, host_phone, current_turn) VALUES (?, 'Battle Arena', ?, ?)", (r_code, USER, USER))
-                        cursor.execute("INSERT INTO ludo_players (room_code, user_phone, color, joined_at) VALUES (?, ?, '🔴 Red', ?)", (r_code, USER, str(date.today())))
+                        cursor.execute("INSERT INTO ludo_players (room_code, user_phone, color, joined_at) VALUES (?, ?, '🔴 Red', ?)", (r_code, USER, today_str))
                         conn.commit()
                         st.rerun()
                     except Exception: st.error("Code pehle se chuna hai!")
@@ -320,7 +328,7 @@ with tab_games:
             with st.form("ludo_join_f"):
                 j_code = st.text_input("Friend Code:", max_chars=4)
                 if st.form_submit_button("Join Match ⚡", use_container_width=True):
-                    cursor.execute("INSERT OR IGNORE INTO ludo_players (room_code, user_phone, color, joined_at) VALUES (?, ?, '🟢 Green', ?)", (j_code, USER, str(date.today())))
+                    cursor.execute("INSERT OR IGNORE INTO ludo_players (room_code, user_phone, color, joined_at) VALUES (?, ?, '🟢 Green', ?)", (j_code, USER, today_str))
                     conn.commit()
                     st.rerun()
     else:
@@ -347,24 +355,24 @@ with tab_games:
 
     st.write("---")
     st.markdown("### 🎡 Daily Wealth Spin")
-    cursor.execute("SELECT task_text, is_completed FROM daily_challenges WHERE user_phone = ? AND challenge_date = ?", (USER, str(date.today())))
+    cursor.execute("SELECT task_text, is_completed FROM daily_challenges WHERE user_phone = ? AND challenge_date = ?", (USER, today_str))
     ch_data = cursor.fetchone()
     if not ch_data:
         if st.button("SPIN TODAY'S WHEEL 🎯", type="primary", use_container_width=True):
-            cursor.execute("INSERT INTO daily_challenges (user_phone, challenge_date, task_text, reward_type, reward_val, is_completed) VALUES (?, ?, 'Zero Faltu Kharch: Aaj bahar koi chai-nashta nahi!', 'XP', 100, 0)", (USER, str(date.today())))
+            cursor.execute("INSERT INTO daily_challenges (user_phone, challenge_date, task_text, reward_type, reward_val, is_completed) VALUES (?, ?, 'Zero Faltu Kharch: Aaj bahar koi chai-nashta nahi!', 'XP', 100, 0)", (USER, today_str))
             conn.commit()
             st.rerun()
     else:
         st.info(f"📌 Mission: {ch_data[0]}")
         if ch_data[1] == 0:
             if st.button("✅ Claim Done (+100 XP)", use_container_width=True):
-                cursor.execute("UPDATE daily_challenges SET is_completed = 1 WHERE user_phone = ? AND challenge_date = ?", (USER, str(date.today())))
+                cursor.execute("UPDATE daily_challenges SET is_completed = 1 WHERE user_phone = ? AND challenge_date = ?", (USER, today_str))
                 conn.commit()
-                st.toast("Claimed +100 XP!")
+                st.balloons()
                 st.rerun()
         else: st.success("✅ Mission Completed!")
 
-# 4. SQUAD & LEADERBOARD
+# ==================== 4. SQUAD & LEADERBOARD ====================
 with tab_squad:
     st.subheader("👥 Wealth Squad")
     cursor.execute("SELECT s.squad_name, s.squad_code FROM wealth_squads s INNER JOIN squad_members m ON s.squad_code = m.squad_code WHERE m.user_phone = ?", (USER,))
@@ -378,7 +386,7 @@ with tab_squad:
             if st.form_submit_button("Create Squad 🛡️", use_container_width=True) and sn and len(sc) == 4:
                 try:
                     cursor.execute("INSERT INTO wealth_squads (squad_name, squad_code, creator_phone) VALUES (?, ?, ?)", (sn, sc, USER))
-                    cursor.execute("INSERT INTO squad_members (squad_code, user_phone, joined_date) VALUES (?, ?, ?)", (sc, USER, str(date.today())))
+                    cursor.execute("INSERT INTO squad_members (squad_code, user_phone, joined_date) VALUES (?, ?, ?)", (sc, USER, today_str))
                     conn.commit()
                     st.rerun()
                 except Exception: st.error("Code used!")
@@ -390,13 +398,13 @@ with tab_squad:
         me = " (आप ⭐)" if r['phone'] == USER else ""
         st.write(f"**Rank {idx+1}** • `@{r['phone'][:5]}*****`{me} — **🔥 Active**")
 
-# 5. TOP 1% CLUB & TIME MACHINE
+# ==================== 5. TOP 1% CLUB ====================
 with tab_elite:
     st.subheader("👑 Top 1% Wealth Club")
     badge = "🔱 TITAN" if networth >= 10000000 else "🐺 LONE HUSTLER"
     st.markdown(f"""
     <div class="app-card" style="text-align:center;">
-        <h4 style="color:#e5a93c;">STATUS: {badge}</h4>
+        <h4 style="color:#f59e0b;">STATUS: {badge}</h4>
         <h2>Networth: ₹{networth:,.0f}</h2>
         <p>Streak: 🔥 {streak} Days Active</p>
     </div>
@@ -417,7 +425,7 @@ with tab_elite:
     f_val = networth * ((1 + 0.15)**y) + (10000 * (((1 + 0.0125)**(y * 12) - 1) / 0.0125))
     st.metric(f"{y} Saal Baad Networth", f"₹{f_val:,.0f}")
 
-# 6. DETOX
+# ==================== 6. DETOX ====================
 with tab_detox:
     st.subheader("🔥 Reels Detox Calculator (Buttons)")
     cd1, cd2, cd3, cd4 = st.columns(4)
@@ -433,7 +441,7 @@ with tab_detox:
     burn = (m / 60.0) * 300.0
     st.error(f"⚠️ {m} minute reels dekhne se ₹{burn:,.0f} ka samay jala diya!")
 
-# 7. AI COACH
+# ==================== 7. AI COACH ====================
 with tab_coach:
     st.subheader("🎙️ AI Wealth Voice Coach")
     speech_text = f"Namaskar! Aapki networth ₹{networth:,.0f} hai. Daily discipline hi 100 Crore ka rasta hai."
@@ -441,7 +449,7 @@ with tab_coach:
     safe_speech_js = speech_text.replace('"', '\\"').replace('\n', ' ')
     audio_html = f"""
     <div style="text-align: center; margin-top: 10px;">
-        <button onclick="speakAudio()" style="background: linear-gradient(135deg, #e5a93c 0%, #b45309 100%); color: #111; font-weight: bold; border: none; padding: 10px 24px; border-radius: 20px; cursor: pointer;">
+        <button onclick="speakAudio()" style="background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%); color: #111; font-weight: bold; border: none; padding: 10px 24px; border-radius: 20px; cursor: pointer;">
             🔊 Audio Coach Suney (Play)
         </button>
     </div>
@@ -456,7 +464,7 @@ with tab_coach:
     """
     st.components.v1.html(audio_html, height=70)
 
-# 8. REVERSE GOAL
+# ==================== 8. REVERSE GOAL ====================
 with tab_rev:
     st.subheader("🎯 100 Crore Reverse-Engine Goal")
     r1, r2, r3 = st.columns(3)
@@ -469,7 +477,7 @@ with tab_rev:
     sy = st.session_state["reverse_horizon_yrs"]
     st.metric(f"{sy} Saal me 100 Cr ka Daily Target", f"₹{(TARGET / (sy * 365)):,.0f} / din")
 
-# 9. CALENDAR
+# ==================== 9. CALENDAR ====================
 with tab_cal:
     st.subheader("📅 Financial Calendar Diary")
     sel_dt = str(st.date_input("Date Chunein:", value=date.today()))
@@ -477,12 +485,12 @@ with tab_cal:
     d_exp = exp_df[exp_df["Tariqh"] == sel_dt]["Raqam (₹)"].sum() if not exp_df.empty else 0.0
     st.metric("Net Daily Savings", f"₹{d_inc - d_exp:,.0f}")
 
-# 10. PASSIVE FIRE
+# ==================== 10. PASSIVE FIRE ====================
 with tab_fire:
     st.subheader("🌴 Passive FIRE Engine")
     st.metric("Monthly Passive Income (4% Rule)", f"₹{(networth * 0.04) / 12:,.0f} / mo")
 
-# 11. UPI GOLD
+# ==================== 11. UPI GOLD ====================
 with tab_roundup:
     st.subheader("🪙 Micro Gold SIP")
     if st.button("🟡 ₹10 Sona Kharidein"):
@@ -491,18 +499,18 @@ with tab_roundup:
         st.success("₹10 gold added!")
         st.rerun()
 
-# 12. TAX BUFFER
+# ==================== 12. TAX BUFFER ====================
 with tab_tax:
     st.subheader("⚖️ Tax Buffer & Clean Wealth")
     st.metric("Clean In-Hand Networth", f"₹{max(net_cash - (inc_val * 0.15), 0.0) + asset_val:,.0f}")
 
-# 13. LUXURY SIMULATOR
+# ==================== 13. LUXURY SIMULATOR ====================
 with tab_wish:
     st.subheader("🏎️ Luxury Simulator")
     st.progress(min(networth / 8500000, 1.0))
     st.caption("Sports Car Goal Progress")
 
-# 14. INCOME
+# ==================== 14. INCOME ====================
 with tab_inc:
     st.subheader("💵 Income Record")
     with st.form("inc_form_master", clear_on_submit=True):
@@ -514,7 +522,7 @@ with tab_inc:
             st.rerun()
     if not cash_df.empty: st.dataframe(cash_df.drop(columns=["id"]), use_container_width=True)
 
-# 15. EXPENSES
+# ==================== 15. EXPENSES ====================
 with tab_exp:
     st.subheader("💸 Expense Record")
     with st.form("exp_form_master", clear_on_submit=True):
@@ -526,7 +534,7 @@ with tab_exp:
             st.rerun()
     if not exp_df.empty: st.dataframe(exp_df.drop(columns=["id"]), use_container_width=True)
 
-# 16. KARZ & ASSETS
+# ==================== 16. KARZ & ASSETS ====================
 with tab_debt:
     st.subheader("⚖️ Karz, Debt & Physical Assets")
     st.write("#### Assets:")
