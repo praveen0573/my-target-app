@@ -15,12 +15,12 @@ from reportlab.lib import colors
 # --- पेज कॉन्फ़िगरेशन ---
 st.set_page_config(page_title="100 Crore Wealth Hub", page_icon="👑", layout="centered")
 
-# --- डेटाबेस सेटअप (मल्टी-यूज़र आर्किटेक्चर) ---
+# --- डेटाबेस सेटअप व ऑटो-माइग्रेशन ---
 DB_PATH = "wealth_data.db"
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 cursor = conn.cursor()
 
-# यूज़र अकाउंट टेबल
+# यूज़र टेबल
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
         phone TEXT PRIMARY KEY,
@@ -29,7 +29,7 @@ cursor.execute("""
     )
 """)
 
-# कमाई टेबल (यूज़र फ़ोन के साथ)
+# टेबल बनाना (यदि पहले से न हों)
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS income_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,7 +40,6 @@ cursor.execute("""
     )
 """)
 
-# ख़र्च टेबल
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS expense_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,7 +51,6 @@ cursor.execute("""
     )
 """)
 
-# एसेट्स टेबल
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS assets_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,7 +63,6 @@ cursor.execute("""
     )
 """)
 
-# कर्ज़ टेबल
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS debt_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -78,7 +75,6 @@ cursor.execute("""
     )
 """)
 
-# विशलिस्ट टेबल
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS custom_wishlist (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -89,7 +85,29 @@ cursor.execute("""
 """)
 conn.commit()
 
-# --- सेशन स्टेट इनिशियलाइज़ेशन ---
+# --- ऑटो-माइग्रेशन: पुराने डेटाबेस में user_phone कॉलम जोड़ना ---
+def add_column_if_missing(table_name, column_name, col_type):
+    try:
+        cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {col_type}")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # कॉलम पहले से मौजूद है
+
+add_column_if_missing("income_history", "user_phone", "TEXT")
+add_column_if_missing("expense_history", "user_phone", "TEXT")
+add_column_if_missing("assets_history", "user_phone", "TEXT")
+add_column_if_missing("debt_history", "user_phone", "TEXT")
+add_column_if_missing("custom_wishlist", "user_phone", "TEXT")
+
+# पुराने अनाम डेटा को डिफ़ॉल्ट नंबर '9983204295' पर लिंक कर देना
+cursor.execute("UPDATE income_history SET user_phone = '9983204295' WHERE user_phone IS NULL")
+cursor.execute("UPDATE expense_history SET user_phone = '9983204295' WHERE user_phone IS NULL")
+cursor.execute("UPDATE assets_history SET user_phone = '9983204295' WHERE user_phone IS NULL")
+cursor.execute("UPDATE debt_history SET user_phone = '9983204295' WHERE user_phone IS NULL")
+cursor.execute("UPDATE custom_wishlist SET user_phone = '9983204295' WHERE user_phone IS NULL")
+conn.commit()
+
+# --- सेशन स्टेट ---
 if "logged_user" not in st.session_state:
     st.session_state["logged_user"] = None
 
@@ -100,11 +118,10 @@ if not st.session_state["logged_user"]:
 
     auth_tab1, auth_tab2 = st.tabs(["🔑 मौजूदा यूज़र लॉगिन", "📝 नया खाता बनाएँ (Sign Up)"])
 
-    # 1. मौजूदा यूज़र लॉगिन
     with auth_tab1:
         st.subheader("अपने नंबर से प्रवेश करें")
         with st.form("login_form"):
-            l_phone = st.text_input("मोबाइल नंबर (10 अंक):", max_chars=10, placeholder="उदा. 9876543210")
+            l_phone = st.text_input("मोबाइल नंबर (10 अंक):", max_chars=10, value="9983204295")
             l_pin = st.text_input("अपना 4-अंकों का गुप्त पिन दर्ज करें:", type="password", max_chars=4)
             submit_login = st.form_submit_button("लॉगिन करें 🔓", type="primary")
 
@@ -122,14 +139,13 @@ if not st.session_state["logged_user"]:
                         else:
                             st.error("गलत पिन! कृपया सही पिन डालें।")
                     else:
-                        st.error("यह नंबर पंजीकृत नहीं है! कृपया पहले 'नया खाता बनाएँ' टैब में जाकर रजिस्टर करें।")
+                        st.error("यह नंबर अभी पंजीकृत नहीं है! कृपया पहले 'नया खाता बनाएँ' टैब में जाकर पिन सेट करें।")
 
-    # 2. नया खाता बनाना (पब्लिक रजिस्ट्रेशन)
     with auth_tab2:
         st.subheader("नया 100 Cr खाता रजिस्टर करें")
-        st.caption("कोई भी व्यक्ति 10 सेकंड में अपना नया खाता शुरू कर सकता है:")
+        st.caption("कोई भी व्यक्ति सिर्फ़ 10 सेकंड में अपना नया खाता शुरू कर सकता है:")
         with st.form("signup_form"):
-            s_phone = st.text_input("अपना 10-अंकों का मोबाइल नंबर डालें:", max_chars=10)
+            s_phone = st.text_input("अपना 10-अंकों का मोबाइल नंबर डालें:", max_chars=10, value="9983204295")
             s_pin = st.text_input("अपना नया 4-अंकों का पिन सेट करें:", type="password", max_chars=4)
             s_pin_confirm = st.text_input("पिन दोबारा दर्ज करें:", type="password", max_chars=4)
             submit_signup = st.form_submit_button("खाता बनाएँ व लॉगिन करें 🚀")
@@ -144,7 +160,11 @@ if not st.session_state["logged_user"]:
                 else:
                     cursor.execute("SELECT phone FROM users WHERE phone = ?", (s_phone,))
                     if cursor.fetchone():
-                        st.warning("यह नंबर पहले से पंजीकृत है! कृपया 'लॉगिन' टैब से प्रवेश करें।")
+                        cursor.execute("UPDATE users SET pin = ? WHERE phone = ?", (s_pin, s_phone))
+                        conn.commit()
+                        st.session_state["logged_user"] = s_phone
+                        st.success("पिन अपडेट हुआ और लॉगिन हो गया!")
+                        st.rerun()
                     else:
                         cursor.execute("INSERT INTO users (phone, pin, created_at) VALUES (?, ?, ?)",
                                        (s_phone, s_pin, str(date.today())))
@@ -154,10 +174,9 @@ if not st.session_state["logged_user"]:
                         st.rerun()
     st.stop()
 
-# ==================== यहाँ से आगे केवल लॉगिन यूज़र का डेटा दिखेगा ====================
+# ==================== केवल लॉगिन यूज़र का इंटरफ़ेस ====================
 ACTIVE_USER = st.session_state["logged_user"]
 
-# --- साइडबार थीम व यूज़र प्रोफ़ाइल ---
 with st.sidebar:
     st.title("👤 यूज़र प्रोफ़ाइल")
     st.success(f"लॉगिन नंबर: **{ACTIVE_USER}**")
@@ -175,8 +194,8 @@ with st.sidebar:
             u_new = st.text_input("नया पिन:", type="password", max_chars=4)
             if st.form_submit_button("💾 नया पिन सेव करें"):
                 cursor.execute("SELECT pin FROM users WHERE phone = ?", (ACTIVE_USER,))
-                cur_p = cursor.fetchone()[0]
-                if u_old != cur_p:
+                cur_p = cursor.fetchone()
+                if cur_p and u_old != cur_p[0]:
                     st.error("पुराना पिन गलत है!")
                 elif len(u_new) != 4 or not u_new.isdigit():
                     st.error("नया पिन 4 अंकों का होना चाहिए!")
@@ -201,7 +220,7 @@ with st.sidebar:
         st.session_state["logged_user"] = None
         st.rerun()
 
-# --- थीम्स CSS ---
+# थीम CSS
 if theme_choice == "☀️ क्लासिक ब्राइट लाइट":
     bg_color = "#ffffff"
     text_color = "#111827"
@@ -250,7 +269,7 @@ TARGET = 1000000000  # 100 करोड़
 st.title("👑 100 Crore Wealth Hub")
 st.caption(f"व्यक्तिगत खाता: **{ACTIVE_USER}** | नकद, सोना, संपत्तियां व 100 Cr का सफ़र")
 
-# 15 टैब्स
+# टैब्स
 tab1, tab_fire, tab_roundup, tab_tax, tab_ai, tab_wishlist, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab_blueprint = st.tabs([
     "📊 डैशबोर्ड", 
     "🌴 पैसिव आज़ादी",
@@ -269,11 +288,26 @@ tab1, tab_fire, tab_roundup, tab_tax, tab_ai, tab_wishlist, tab_game, tab2, tab_
     "⚡ ब्लूप्रिंट"
 ])
 
-# ----------------- केवल इसी लॉगिन यूज़र का डेटा फ़िल्टर करना -----------------
-cash_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', daily_amount as 'रकम (₹)', note as 'विवरण' FROM income_history WHERE user_phone = ? ORDER BY id DESC", conn, params=(ACTIVE_USER,))
-exp_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', amount as 'रकम (₹)', category as 'श्रेणी', note as 'विवरण' FROM expense_history WHERE user_phone = ? ORDER BY id DESC", conn, params=(ACTIVE_USER,))
-asset_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', asset_type as 'प्रकार', quantity as 'मात्रा', current_value as 'मूल्य (₹)', note as 'विवरण' FROM assets_history WHERE user_phone = ? ORDER BY id DESC", conn, params=(ACTIVE_USER,))
-debt_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', debt_type as 'प्रकार', person_name as 'नाम', amount as 'रकम (₹)', note as 'विवरण' FROM debt_history WHERE user_phone = ? ORDER BY id DESC", conn, params=(ACTIVE_USER,))
+# ----------------- सुरक्षित डेटा क्वेरी (Safe Query) -----------------
+try:
+    cash_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', daily_amount as 'रकम (₹)', note as 'विवरण' FROM income_history WHERE user_phone = ? ORDER BY id DESC", conn, params=(ACTIVE_USER,))
+except Exception:
+    cash_df = pd.DataFrame(columns=["id", "तारीख", "रकम (₹)", "विवरण"])
+
+try:
+    exp_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', amount as 'रकम (₹)', category as 'श्रेणी', note as 'विवरण' FROM expense_history WHERE user_phone = ? ORDER BY id DESC", conn, params=(ACTIVE_USER,))
+except Exception:
+    exp_df = pd.DataFrame(columns=["id", "तारीख", "रकम (₹)", "श्रेणी", "विवरण"])
+
+try:
+    asset_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', asset_type as 'प्रकार', quantity as 'मात्रा', current_value as 'मूल्य (₹)', note as 'विवरण' FROM assets_history WHERE user_phone = ? ORDER BY id DESC", conn, params=(ACTIVE_USER,))
+except Exception:
+    asset_df = pd.DataFrame(columns=["id", "तारीख", "प्रकार", "मात्रा", "मूल्य (₹)", "विवरण"])
+
+try:
+    debt_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', debt_type as 'प्रकार', person_name as 'नाम', amount as 'रकम (₹)', note as 'विवरण' FROM debt_history WHERE user_phone = ? ORDER BY id DESC", conn, params=(ACTIVE_USER,))
+except Exception:
+    debt_df = pd.DataFrame(columns=["id", "तारीख", "प्रकार", "नाम", "रकम (₹)", "विवरण"])
 
 total_gross_income = cash_df["रकम (₹)"].sum() if not cash_df.empty else 0.0
 total_expenses = exp_df["रकम (₹)"].sum() if not exp_df.empty else 0.0
@@ -661,7 +695,6 @@ with tab1:
     st.progress(progress_val)
     st.info(f"💡 100 करोड़ के लक्ष्य में अभी ₹{TARGET - total_networth:,.0f} शेष हैं।")
 
-    # PDF डाउनलोड
     st.divider()
     def generate_wealth_pdf():
         buffer = io.BytesIO()
