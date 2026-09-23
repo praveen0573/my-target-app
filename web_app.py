@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import sqlite3
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta
 import random
 import io
 import requests
@@ -20,7 +20,6 @@ DB_PATH = "wealth_data.db"
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 cursor = conn.cursor()
 
-# यूज़र टेबल
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
         phone TEXT PRIMARY KEY,
@@ -29,7 +28,6 @@ cursor.execute("""
     )
 """)
 
-# टेबल बनाना (यदि पहले से न हों)
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS income_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -85,7 +83,6 @@ cursor.execute("""
 """)
 conn.commit()
 
-# --- ऑटो-माइग्रेशन ---
 def add_column_if_missing(table_name, column_name, col_type):
     try:
         cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {col_type}")
@@ -110,7 +107,7 @@ conn.commit()
 if "logged_user" not in st.session_state:
     st.session_state["logged_user"] = None
 
-# --- लॉगिन / साइन-अप स्क्रीन ---
+# --- लॉगिन स्क्रीन ---
 if not st.session_state["logged_user"]:
     st.title("🔒 100 Crore Wealth Vault")
     st.caption("हर व्यक्ति का अपना सुरक्षित, व्यक्तिगत वित्तीय खाता।")
@@ -138,11 +135,10 @@ if not st.session_state["logged_user"]:
                         else:
                             st.error("गलत पिन! कृपया सही पिन डालें।")
                     else:
-                        st.error("यह नंबर अभी पंजीकृत नहीं है! कृपया 'नया खाता बनाएँ' टैब में जाकर पिन सेट करें।")
+                        st.error("यह नंबर पंजीकृत नहीं है! कृपया 'नया खाता बनाएँ' टैब से पिन सेट करें।")
 
     with auth_tab2:
         st.subheader("नया 100 Cr खाता रजिस्टर करें")
-        st.caption("कोई भी व्यक्ति सिर्फ़ 10 सेकंड में अपना नया खाता शुरू कर सकता है:")
         with st.form("signup_form"):
             s_phone = st.text_input("अपना 10-अंकों का मोबाइल नंबर डालें:", max_chars=10, value="9983204295")
             s_pin = st.text_input("अपना नया 4-अंकों का पिन सेट करें:", type="password", max_chars=4)
@@ -173,12 +169,12 @@ if not st.session_state["logged_user"]:
                         st.rerun()
     st.stop()
 
-# ==================== केवल लॉगिन यूज़र का इंटरफ़ेस ====================
+# ==================== लॉगिन यूज़र इंटरफ़ेस ====================
 ACTIVE_USER = st.session_state["logged_user"]
 
 with st.sidebar:
     st.title("👤 यूज़र प्रोफ़ाइल")
-    st.success(f"लॉगिन नंबर: **{ACTIVE_USER}**")
+    st.success(f"खाता: **{ACTIVE_USER}**")
     
     theme_choice = st.selectbox(
         "पसंदीदा थीम चुनें:",
@@ -204,7 +200,7 @@ with st.sidebar:
                     st.success("पिन बदल गया!")
 
     st.divider()
-    st.subheader("💾 बैकअप व सुरक्षा")
+    st.subheader("💾 बैकअप डाउनलोड")
     if os.path.exists(DB_PATH):
         with open(DB_PATH, "rb") as fp:
             st.download_button(
@@ -259,18 +255,26 @@ st.markdown(f"""
     .stTabs [data-baseweb="tab"] {{ background-color: {tab_bg} !important; border-radius: 8px; color: {text_color} !important; padding: 6px 12px; font-size: 0.9rem; }}
     .stTabs [aria-selected="true"] {{ border-bottom: 3px solid {accent} !important; font-weight: 700 !important; }}
     .stDownloadButton button {{ background-color: {btn_bg} !important; color: {btn_text} !important; font-weight: bold !important; border: none !important; padding: 10px 22px !important; border-radius: 8px !important; }}
-    .flex-card {{ background: linear-gradient(135deg, #1f2430 0%, #0d0f14 100%); border: 2px solid #d4af37; border-radius: 16px; padding: 24px; text-align: center; }}
+    .vip-card {{
+        background: linear-gradient(135deg, #1e1b18 0%, #0d0c0a 100%);
+        border: 2px solid #e5a93c;
+        border-radius: 16px;
+        padding: 24px;
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(229, 169, 60, 0.2);
+    }}
     </style>
 """, unsafe_allow_html=True)
 
 TARGET = 1000000000  # 100 करोड़
 
 st.title("👑 100 Crore Wealth Hub")
-st.caption(f"व्यक्तिगत खाता: **{ACTIVE_USER}** | नकद, सोना, संपत्तियां व 100 Cr का सफ़र")
+st.caption(f"व्यक्तिगत खाता: **{ACTIVE_USER}** | टॉप 1% वेल्थ क्लब व 100 Cr का सफ़र")
 
-# टैब्स
-tab1, tab_cal, tab_fire, tab_roundup, tab_tax, tab_ai, tab_wishlist, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab_blueprint = st.tabs([
+# 16 टैब्स (नया वायरल टैब जोड़ा गया)
+tab1, tab_elite, tab_cal, tab_fire, tab_roundup, tab_tax, tab_ai, tab_wishlist, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4 = st.tabs([
     "📊 डैशबोर्ड", 
+    "👑 टॉप 1% एलीट क्लब",
     "📅 वित्तीय कैलेंडर",
     "🌴 पैसिव आज़ादी",
     "🪙 UPI राउंड-अप",
@@ -284,11 +288,10 @@ tab1, tab_cal, tab_fire, tab_roundup, tab_tax, tab_ai, tab_wishlist, tab_game, t
     "🩺 वेल्थ स्कोर",
     "📈 बचत दर", 
     "🥇 गोल्ड व संपत्तियां", 
-    "🚀 100 Cr रोडमैप",
-    "⚡ ब्लूप्रिंट"
+    "🚀 100 Cr रोडमैप"
 ])
 
-# ----------------- सुरक्षित डेटा क्वेरी (Safe Query) -----------------
+# ----------------- सुरक्षित डेटा क्वेरी -----------------
 try:
     cash_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', daily_amount as 'रकम (₹)', note as 'विवरण' FROM income_history WHERE user_phone = ? ORDER BY id DESC", conn, params=(ACTIVE_USER,))
 except Exception:
@@ -349,34 +352,72 @@ while str(check_day) in unique_dates:
     streak += 1
     check_day = check_day - timedelta(days=1)
 
-if total_networth >= 100000000:
-    level_title = "🔱 Shadow Titan (10 Cr+)"
-    level_num = 6
-elif total_networth >= 10000000:
-    level_title = "👑 Centurion Mogul (1 Cr+)"
-    level_num = 5
-elif total_networth >= 1000000:
-    level_title = "🦅 Empire Architect (10 Lakh+)"
-    level_num = 4
-elif total_networth >= 100000:
-    level_title = "🛡️ Gold Guardian (1 Lakh+)"
-    level_num = 3
-elif total_networth >= 10000:
-    level_title = "⚡ Rising Spark (10k+)"
-    level_num = 2
-else:
-    level_title = "🐺 The Lone Hustler"
-    level_num = 1
+# ----------------- TAB: ELITE 1% CLUB & TIME MACHINE (VIRAL & ATTRACTIVE) -----------------
+with tab_elite:
+    st.subheader("👑 द 1% एलीट वेल्थ क्लब व 2035 टाइम-मशीन")
+    st.caption("जानिए आप भारत व दुनिया की आबादी में कहाँ खड़े हैं:")
 
-# ----------------- TAB: CALENDAR (NEW) -----------------
+    # पर्सेंटाइल गणना
+    if total_networth >= 100000000:
+        percentile = "टॉप 0.01% (अल्ट्रा-एलीट टाइटन)"
+        next_bracket = "ग्लोबल फ़ोर्ब्स लिस्ट 🏆"
+    elif total_networth >= 10000000:
+        percentile = "टॉप 0.5% (करोड़पति क्लब)"
+        next_bracket = "टॉप 0.1% (5 करोड़ क्लब)"
+    elif total_networth >= 2500000:
+        percentile = "टॉप 3% (संपन्न वेल्थ क्रिएटर)"
+        next_bracket = "टॉप 1% (1 करोड़ क्लब)"
+    elif total_networth >= 500000:
+        percentile = "टॉप 10% (मज़बूत पूँजीपति)"
+        next_bracket = "टॉप 5% (25 लाख क्लब)"
+    elif total_networth >= 50000:
+        percentile = "टॉप 30% (तेज़ी से आगे बढ़ता खिलाड़ी)"
+        next_bracket = "टॉप 10% (5 लाख क्लब)"
+    else:
+        percentile = "आरम्भिक क्लब (Ground Zero Builder)"
+        next_bracket = "टॉप 30% (50 हज़ार क्लब)"
+
+    # VIP Flex Card
+    st.markdown(f"""
+    <div class="vip-card">
+        <h4 style="color: #e5a93c !important; letter-spacing: 2px; margin: 0;">VERIFIED WEALTH STATUS</h4>
+        <h1 style="color: #ffffff !important; font-size: 2.1rem; margin: 10px 0;">{percentile}</h1>
+        <p style="color: #cbd5e0 !important; font-size: 1rem; margin-bottom: 0;">
+            अकाउंट: <b>{ACTIVE_USER}</b> | शुद्ध नेटवर्थ: <b>₹{total_networth:,.0f}</b>
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    st.success(f"🎯 **अगला पड़ाव:** {next_bracket} में प्रवेश करना!")
+
+    # 2035 टाइम-मशीन (Future Predictor)
+    st.divider()
+    st.subheader("⏳ 2035 फ्यूचर टाइम-मशीन (Your Wealth in Future)")
+    st.caption("यदि आप अपनी वर्तमान दैनिक आदत और बचत को जारी रखते हैं, तो आपका भविष्य कैसा होगा:")
+
+    time_travel_yrs = st.slider("भविष्य में कितने साल आगे देखना है?", min_value=3, max_value=15, value=10, step=1)
+    future_year = 2026 + time_travel_yrs
+    
+    # 15% कम्पाउंडिंग पर भविष्य की संपत्ति
+    monthly_runrate = max(month_net_savings, 5000.0)
+    r_mo = 0.15 / 12
+    n_mo = time_travel_yrs * 12
+    future_val = (total_networth * ((1 + 0.15)**time_travel_yrs)) + (monthly_runrate * (((1 + r_mo)**n_mo - 1) / r_mo))
+    future_passive_mo = (future_val * 0.05) / 12
+
+    col_tm1, col_tm2 = st.columns(2)
+    with col_tm1:
+        st.metric(f"वर्ष {future_year} में आपकी अनुमानित नेटवर्थ 🚀", f"₹{future_val:,.0f}")
+    with col_tm2:
+        st.metric(f"उस समय हर महीने बिना काम किए पैसिव सैलरी 🌴", f"₹{future_passive_mo:,.0f} / माह")
+
+    st.info(f"✨ **टाइम-मशीन इनसाइट:** वर्ष {future_year} में आप रोज़ाना लगभग **₹{future_passive_mo/30:,.0f}** सिर्फ़ पैसिव आय से कमा रहे होंगे!")
+
+# ----------------- TAB: CALENDAR -----------------
 with tab_cal:
-    st.subheader("📅 दैनिक वित्तीय कैलेंडर व डायरी (Daily Wealth Diary)")
-    st.caption("किसी भी तारीख को चुनकर उस दिन की पूरी वित्तीय रिपोर्ट और विवरण देखें:")
-
+    st.subheader("📅 दैनिक वित्तीय कैलेंडर व डायरी")
     sel_cal_date = st.date_input("तारीख चुनें:", value=date.today(), key="wealth_cal_picker")
     sel_date_str = str(sel_cal_date)
 
-    # उस दिन का डेटा फ़िल्टर
     day_inc = 0.0
     day_exp = 0.0
     day_inc_df = pd.DataFrame()
@@ -397,34 +438,21 @@ with tab_cal:
     day_net = day_inc - day_exp
 
     col_cd1, col_cd2, col_cd3 = st.columns(3)
-    with col_cd1:
-        st.metric("उस दिन की कमाई", f"₹{day_inc:,.0f}")
-    with col_cd2:
-        st.metric("उस दिन का ख़र्च", f"₹{day_exp:,.0f}")
-    with col_cd3:
-        st.metric("शुद्ध दैनिक बचत", f"₹{day_net:,.0f}", delta=f"{day_net:+,.0f}")
+    with col_cd1: st.metric("उस दिन की कमाई", f"₹{day_inc:,.0f}")
+    with col_cd2: st.metric("उस दिन का ख़र्च", f"₹{day_exp:,.0f}")
+    with col_cd3: st.metric("शुद्ध दैनिक बचत", f"₹{day_net:,.0f}", delta=f"{day_net:+,.0f}")
 
     st.divider()
-    st.markdown(f"#### 📝 {sel_cal_date.strftime('%d %B %Y')} की विस्तृत एंट्रियां:")
-
     c_tab1, c_tab2, c_tab3 = st.tabs(["💵 कमाई एंट्रियां", "💸 ख़र्च एंट्रियां", "🥇 संपत्तियां/सोना"])
     with c_tab1:
-        if not day_inc_df.empty:
-            st.dataframe(day_inc_df.drop(columns=["id"]), use_container_width=True)
-        else:
-            st.info("इस तारीख को कोई कमाई दर्ज नहीं हुई थी।")
-
+        if not day_inc_df.empty: st.dataframe(day_inc_df.drop(columns=["id"]), use_container_width=True)
+        else: st.info("इस तारीख को कोई कमाई दर्ज नहीं हुई थी।")
     with c_tab2:
-        if not day_exp_df.empty:
-            st.dataframe(day_exp_df.drop(columns=["id"]), use_container_width=True)
-        else:
-            st.info("इस तारीख को कोई ख़र्च दर्ज नहीं हुआ था।")
-
+        if not day_exp_df.empty: st.dataframe(day_exp_df.drop(columns=["id"]), use_container_width=True)
+        else: st.info("इस तारीख को कोई ख़र्च दर्ज नहीं हुआ था।")
     with c_tab3:
-        if not day_asset_df.empty:
-            st.dataframe(day_asset_df.drop(columns=["id"]), use_container_width=True)
-        else:
-            st.info("इस तारीख को कोई नई संपत्ति/सोना नहीं जोड़ा गया था।")
+        if not day_asset_df.empty: st.dataframe(day_asset_df.drop(columns=["id"]), use_container_width=True)
+        else: st.info("इस तारीख को कोई नई संपत्ति नहीं जोड़ी गई थी।")
 
 # ----------------- TAB: PASSIVE FIRE FREEDOM ENGINE -----------------
 with tab_fire:
@@ -445,12 +473,9 @@ with tab_fire:
     t_monthly_passive = t_annual_passive / 12
     t_daily_passive = t_annual_passive / 365
     col_tw1, col_tw2, col_tw3 = st.columns(3)
-    with col_tw1:
-        st.metric("सालाना पैसिव कैश", f"₹{t_annual_passive/10000000:.1f} करोड़/वर्ष")
-    with col_tw2:
-        st.metric("मासिक पैसिव सैलरी", f"₹{t_monthly_passive/100000:.1f} लाख/माह")
-    with col_tw3:
-        st.metric("प्रतिदिन पैसिव आवक", f"₹{t_daily_passive:,.0f}/दिन")
+    with col_tw1: st.metric("सालाना पैसिव कैश", f"₹{t_annual_passive/10000000:.1f} करोड़/वर्ष")
+    with col_tw2: st.metric("मासिक पैसिव सैलरी", f"₹{t_monthly_passive/100000:.1f} लाख/माह")
+    with col_tw3: st.metric("प्रतिदिन पैसिव आवक", f"₹{t_daily_passive:,.0f}/दिन")
 
 # ----------------- TAB: TAX & CLEAN IN-HAND -----------------
 with tab_tax:
@@ -465,10 +490,8 @@ with tab_tax:
         st.metric("टैक्स रिज़र्व फंड", f"₹{tax_reserve:,.0f}")
 
     col_res1, col_res2 = st.columns(2)
-    with col_res1:
-        st.metric("कुल ग्रॉस नेटवर्थ", f"₹{total_networth:,.0f}")
-    with col_res2:
-        st.metric("टैक्स-कटी इन-हैंड नेटवर्थ 🛡️", f"₹{clean_networth:,.0f}")
+    with col_res1: st.metric("कुल ग्रॉस नेटवर्थ", f"₹{total_networth:,.0f}")
+    with col_res2: st.metric("टैक्स-कटी इन-हैंड नेटवर्थ 🛡️", f"₹{clean_networth:,.0f}")
 
 # ----------------- TAB: UPI ROUND-UP -----------------
 with tab_roundup:
@@ -545,20 +568,18 @@ with tab_wishlist:
             st.write(f"### {item['icon']} {item['name']} — `₹{c_cost:,.0f}`")
             st.progress(pct / 100)
         with col_w2:
-            if total_networth >= c_cost:
-                st.success("✅ UNLOCKED!")
-            else:
-                st.warning(f"⏳ `{pct:.2f}%`")
+            if total_networth >= c_cost: st.success("✅ UNLOCKED!")
+            else: st.warning(f"⏳ `{pct:.2f}%`")
         st.divider()
 
 # ----------------- TAB: GAME ZONE -----------------
 with tab_game:
     st.subheader("🎮 100 करोड़ एलीट गेम ज़ोन")
     st.markdown(f"""
-    <div class="flex-card">
-        <h3 style="color: #d4af37 !important; margin: 0;">CURRENT RANK</h3>
-        <h1 style="color: #ffffff !important; font-size: 2.2rem; margin: 10px 0;">{level_title}</h1>
-        <p style="color: #a0aec0 !important; font-size: 1rem;">PLAYER LEVEL: <b>{level_num} / 6</b> | DISCIPLINE STREAK: <b>🔥 {streak} DAYS</b></p>
+    <div class="vip-card">
+        <h3 style="color: #e5a93c !important; margin: 0;">CURRENT RANK</h3>
+        <h1 style="color: #ffffff !important; font-size: 2.2rem; margin: 10px 0;">{percentile}</h1>
+        <p style="color: #a0aec0 !important; font-size: 1rem;">DISCIPLINE STREAK: <b>🔥 {streak} DAYS</b></p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -567,17 +588,14 @@ with tab2:
     with st.form("cash_form", clear_on_submit=True):
         st.subheader("📝 नई नकद कमाई दर्ज करें")
         col_a, col_b = st.columns(2)
-        with col_a:
-            entry_date = st.date_input("तारीख", value=date.today(), key="cash_date")
-        with col_b:
-            daily_income = st.number_input("रकम (₹ में)", min_value=0.0, step=500.0)
+        with col_a: entry_date = st.date_input("तारीख", value=date.today(), key="cash_date")
+        with col_b: daily_income = st.number_input("रकम (₹ में)", min_value=0.0, step=500.0)
         col_cat1, col_cat2 = st.columns(2)
         with col_cat1:
             income_category = st.selectbox("आय का स्रोत", [
                 "व्यापार / बिज़नेस (Business)", "दैनिक बचत (Daily Savings)", "ट्रेडिंग व निवेश (Trading)", "साइड वर्क (Side Hustle)", "अन्य स्रोत"
             ])
-        with col_cat2:
-            custom_note = st.text_input("अतिरिक्त नोट", value="")
+        with col_cat2: custom_note = st.text_input("अतिरिक्त नोट", value="")
         final_note = f"[{income_category}] {custom_note}".strip()
         submit_cash = st.form_submit_button("💾 कमाई सेव करें")
 
@@ -668,29 +686,22 @@ with tab_debt:
 with tab3:
     st.subheader("🥇 गोल्ड व वास्तविक संपत्तियां")
     col_gr1, col_gr2, col_gr3 = st.columns(3)
-    with col_gr1:
-        st.info("🟡 24K गोल्ड: **₹7,650 / ग्राम**")
-    with col_gr2:
-        st.info("🟠 22K गोल्ड: **₹7,050 / ग्राम**")
-    with col_gr3:
-        st.info("⚪ शुद्ध चाँदी: **₹92 / ग्राम**")
+    with col_gr1: st.info("🟡 24K गोल्ड: **₹7,650 / ग्राम**")
+    with col_gr2: st.info("🟠 22K गोल्ड: **₹7,050 / ग्राम**")
+    with col_gr3: st.info("⚪ शुद्ध चाँदी: **₹92 / ग्राम**")
 
     asset_mode = st.radio("जोड़ने का तरीक़ा:", ["गोल्ड कैलकुलेटर (ग्राम अनुसार)", "अन्य अचल संपत्ति"], horizontal=True)
 
     with st.form("asset_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
-        with col1:
-            asset_date = st.date_input("तारीख", value=date.today(), key="asset_date")
+        with col1: asset_date = st.date_input("तारीख", value=date.today(), key="asset_date")
         
         if asset_mode == "गोल्ड कैलकुलेटर (ग्राम अनुसार)":
-            with col2:
-                gold_purity = st.selectbox("शुद्धता", ["24K (99.9% शुद्ध सोना)", "22K (गहने/ज्वेलरी)", "चाँदी (Silver)"])
+            with col2: gold_purity = st.selectbox("शुद्धता", ["24K (99.9% शुद्ध सोना)", "22K (गहने/ज्वेलरी)", "चाँदी (Silver)"])
             default_rate = 7650.0 if "24" in gold_purity else (7050.0 if "22" in gold_purity else 92.0)
             c_g1, c_g2 = st.columns(2)
-            with c_g1:
-                grams = st.number_input("मात्रा (ग्राम में):", min_value=0.1, value=10.0, step=0.5)
-            with c_g2:
-                rate_per_gram = st.number_input("भाव प्रति ग्राम (₹):", min_value=50.0, value=default_rate, step=50.0)
+            with c_g1: grams = st.number_input("मात्रा (ग्राम में):", min_value=0.1, value=10.0, step=0.5)
+            with c_g2: rate_per_gram = st.number_input("भाव प्रति ग्राम (₹):", min_value=50.0, value=default_rate, step=50.0)
             calc_val = grams * rate_per_gram
             st.write(f"💡 कुल मूल्य: **₹{calc_val:,.0f}**")
             asset_type = f"Gold ({gold_purity})" if "2" in gold_purity else "Silver"
@@ -698,13 +709,10 @@ with tab3:
             final_qty = grams
             asset_note = st.text_input("नोट:", value=f"{grams}g @ ₹{rate_per_gram}/g")
         else:
-            with col2:
-                asset_type = st.selectbox("प्रकार", ["ज़मीन / प्लॉट", "मकान / दुकान", "शेयर / म्यूचुअल फंड", "अन्य संपत्ति"])
+            with col2: asset_type = st.selectbox("प्रकार", ["ज़मीन / प्लॉट", "मकान / दुकान", "शेयर / म्यूचुअल फंड", "अन्य संपत्ति"])
             c_m1, c_m2 = st.columns(2)
-            with c_m1:
-                final_val = st.number_input("कुल मौजूदा मूल्यांकन (₹):", min_value=1000.0, step=5000.0)
-            with c_m2:
-                final_qty = st.number_input("मात्रा / यूनिट्स:", min_value=1.0, value=1.0, step=1.0)
+            with c_m1: final_val = st.number_input("कुल मौजूदा मूल्यांकन (₹):", min_value=1000.0, step=5000.0)
+            with c_m2: final_qty = st.number_input("मात्रा / यूनिट्स:", min_value=1.0, value=1.0, step=1.0)
             asset_note = st.text_input("विवरण:", value="दीर्घकालिक संपत्ति")
 
         submit_asset = st.form_submit_button("💾 एसेट सेव करें")
@@ -774,12 +782,9 @@ with tab1:
     st.divider()
     st.subheader("📅 इस महीने का वित्तीय स्नैपशॉट (Current Month)")
     col_mo1, col_mo2, col_mo3 = st.columns(3)
-    with col_mo1:
-        st.metric("इस माह की कमाई", f"₹{month_inc:,.0f}")
-    with col_mo2:
-        st.metric("इस माह का ख़र्च", f"₹{month_exp:,.0f}")
-    with col_mo3:
-        st.metric("इस माह की शुद्ध बचत", f"₹{month_net_savings:,.0f}")
+    with col_mo1: st.metric("इस माह की कमाई", f"₹{month_inc:,.0f}")
+    with col_mo2: st.metric("इस माह का ख़र्च", f"₹{month_exp:,.0f}")
+    with col_mo3: st.metric("इस माह की शुद्ध बचत", f"₹{month_net_savings:,.0f}")
 
     st.divider()
     def generate_wealth_pdf():
@@ -836,14 +841,3 @@ with tab4:
             diff = target_amt - total_networth
             pct = min((total_networth / target_amt) * 100, 100.0)
             st.warning(f"⏳ **{name}** — `{pct:.2f}%` पूरा (अभी ₹{diff:,.0f} बाकी)")
-
-# ----------------- TAB: BLUEPRINT -----------------
-with tab_blueprint:
-    st.subheader("⚡ 100 करोड़ का रिवर्स गणित")
-    blueprint_table = [
-        {"उत्पाद/सर्विस": "₹1,000 की सर्विस / प्रॉडक्ट", "आवश्यक ग्राहक": "10,00,000 लोग", "कुल": "₹100 करोड़"},
-        {"उत्पाद/सर्विस": "₹10,000 का टूल / कोर्स", "आवश्यक ग्राहक": "1,00,000 लोग", "कुल": "₹100 करोड़"},
-        {"उत्पाद/सर्विस": "₹50,000 की एजेंसी डील", "आवश्यक ग्राहक": "20,000 लोग", "कुल": "₹100 करोड़"},
-        {"उत्पाद/सर्विस": "₹1,00,000 का हाई-टिकट बिज़नेस", "आवश्यक ग्राहक": "10,000 लोग", "कुल": "₹100 करोड़"}
-    ]
-    st.dataframe(pd.DataFrame(blueprint_table), use_container_width=True)
