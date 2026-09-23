@@ -114,17 +114,6 @@ cursor.execute("""
 """)
 
 cursor.execute("""
-    CREATE TABLE IF NOT EXISTS user_saved_reels (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_phone TEXT,
-        reel_id INTEGER,
-        saved_date TEXT,
-        UNIQUE(user_phone, reel_id)
-    )
-""")
-
-# Daily Spin Challenge Table
-cursor.execute("""
     CREATE TABLE IF NOT EXISTS daily_challenges (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_phone TEXT,
@@ -134,6 +123,31 @@ cursor.execute("""
         reward_val REAL,
         is_completed INTEGER DEFAULT 0,
         UNIQUE(user_phone, challenge_date)
+    )
+""")
+
+# --- Online Ludo Game Tables ---
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS ludo_rooms (
+        room_code TEXT PRIMARY KEY,
+        room_name TEXT,
+        host_phone TEXT,
+        status TEXT DEFAULT 'WAITING',
+        current_turn TEXT,
+        last_dice INTEGER DEFAULT 0,
+        winner TEXT DEFAULT ''
+    )
+""")
+
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS ludo_players (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        room_code TEXT,
+        user_phone TEXT,
+        color TEXT,
+        token_pos INTEGER DEFAULT 0,
+        joined_at TEXT,
+        UNIQUE(room_code, user_phone)
     )
 """)
 conn.commit()
@@ -157,8 +171,8 @@ if "failed_attempts" not in st.session_state:
     st.session_state["failed_attempts"] = 0
 if "lockout_until" not in st.session_state:
     st.session_state["lockout_until"] = 0
-if "current_reel_index" not in st.session_state:
-    st.session_state["current_reel_index"] = 0
+if "active_ludo_room" not in st.session_state:
+    st.session_state["active_ludo_room"] = None
 
 # --- Login & Sign Up Screen ---
 if not st.session_state["logged_user"]:
@@ -239,7 +253,6 @@ if not st.session_state["logged_user"]:
 # ==================== Logged In User Interface ====================
 ACTIVE_USER = st.session_state["logged_user"]
 
-# Styling
 bg_color = "#0a0c10"
 text_color = "#ffffff"
 accent = "#f59e0b"
@@ -248,22 +261,21 @@ st.markdown(f"""
     <style>
     .stApp {{ background-color: {bg_color} !important; color: {text_color} !important; }}
     label, p, h1, h2, h3, span, div {{ color: {text_color} !important; }}
-    .spin-box {{
-        background: linear-gradient(135deg, #1f1b2e 0%, #110d1a 100%);
-        border: 2px solid #a855f7;
-        border-radius: 18px;
-        padding: 24px;
+    .ludo-board {{
+        background: linear-gradient(135deg, #131722 0%, #080a0f 100%);
+        border: 2px solid #eab308;
+        border-radius: 20px;
+        padding: 20px;
         text-align: center;
-        box-shadow: 0 10px 30px rgba(168, 85, 247, 0.25);
         margin-bottom: 20px;
+        box-shadow: 0 10px 30px rgba(234, 179, 8, 0.2);
     }}
-    .task-card {{
-        background: #171d2b;
-        border: 1px solid #38bdf8;
-        border-radius: 14px;
-        padding: 18px;
-        margin-top: 15px;
-        text-align: left;
+    .player-card {{
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        padding: 12px;
+        margin-top: 8px;
     }}
     </style>
 """, unsafe_allow_html=True)
@@ -271,10 +283,11 @@ st.markdown(f"""
 TARGET = 1000000000
 
 st.title("👑 100 Crore Wealth Hub")
-st.caption(f"यूज़र: **{ACTIVE_USER[:5]}***** | डेली वेल्थ स्पिन, स्क्वाड व 100 Cr मिशन")
+st.caption(f"यूज़र: **{ACTIVE_USER[:5]}***** | ऑनलाइन मल्टीप्लेयर लूडो, स्क्वाड व 100 Cr मिशन")
 
-# Tabs
-tab_spin, tab_squad, tab_lead, tab_reels, tab_dash, tab_tracker = st.tabs([
+# Tabs (नया लूडो गेम टैब सबसे पहले जोड़ा गया)
+tab_ludo, tab_spin, tab_squad, tab_lead, tab_reels, tab_dash, tab_tracker = st.tabs([
+    "🎲 ऑनलाइन लूडो (Game)",
     "🎯 डेली वेल्थ स्पिन",
     "👥 वेल्थ स्क्वाड",
     "🏆 एलीट लीडरबोर्ड", 
@@ -283,32 +296,167 @@ tab_spin, tab_squad, tab_lead, tab_reels, tab_dash, tab_tracker = st.tabs([
     "💵 कमाई व लेजर"
 ])
 
-# ----------------- TAB: DAILY WEALTH SPIN & CHALLENGE (NEW) -----------------
+# ----------------- TAB: ONLINE MULTIPLAYER LUDO -----------------
+with tab_ludo:
+    st.subheader("🎲 100 करोड़ ऑनलाइन लूडो एरीना")
+    st.caption("दोस्तों के साथ ग्रुप बनाकर खेलें या ऑनलाइन रूम कोड से मुकाबला करें:")
+
+    # रूम चेक
+    cursor.execute("""
+        SELECT r.room_code, r.room_name, r.status, r.current_turn, r.last_dice, r.winner
+        FROM ludo_rooms r
+        INNER JOIN ludo_players p ON r.room_code = p.room_code
+        WHERE p.user_phone = ? AND r.status != 'FINISHED'
+    """, (ACTIVE_USER,))
+    joined_room = cursor.fetchone()
+
+    if not joined_room:
+        col_l1, col_l2 = st.columns(2)
+        with col_l1:
+            st.markdown("#### 🛡️ नया लूडो रूम बनाएँ")
+            with st.form("create_ludo_form", clear_on_submit=True):
+                r_name = st.text_input("मैच का नाम:", placeholder="उदा. चैंपियंस बैटल")
+                r_code = st.text_input("4-अंकों का रूम कोड रखें:", max_chars=4, placeholder="उदा. 4455")
+                submit_create = st.form_submit_button("रूम बनाएँ 🎲", type="primary")
+
+                if submit_create:
+                    if not r_name or len(r_code) != 4:
+                        st.error("कृपया नाम और 4-अंकों का कोड डालें!")
+                    else:
+                        try:
+                            cursor.execute("""
+                                INSERT INTO ludo_rooms (room_code, room_name, host_phone, status, current_turn)
+                                VALUES (?, ?, ?, 'WAITING', ?)
+                            """, (r_code, r_name, ACTIVE_USER, ACTIVE_USER))
+                            cursor.execute("""
+                                INSERT INTO ludo_players (room_code, user_phone, color, token_pos, joined_at)
+                                VALUES (?, ?, '🔴 लाल (Red)', 0, ?)
+                            """, (r_code, ACTIVE_USER, str(date.today())))
+                            conn.commit()
+                            st.balloons()
+                            st.success(f"रूम '{r_name}' बन गया!")
+                            st.rerun()
+                        except sqlite3.IntegrityError:
+                            st.error("यह कोड पहले से उपयोग में है, दूसरा कोड चुनें!")
+
+        with col_l2:
+            st.markdown("#### 🤝 दोस्त का रूम जॉइन करें")
+            with st.form("join_ludo_form", clear_on_submit=True):
+                join_c = st.text_input("4-अंकों का रूम कोड डालें:", max_chars=4)
+                submit_join = st.form_submit_button("मैच जॉइन करें ⚡")
+
+                if submit_join:
+                    cursor.execute("SELECT room_code, room_name FROM ludo_rooms WHERE room_code = ? AND status != 'FINISHED'", (join_c,))
+                    r_found = cursor.fetchone()
+                    if r_found:
+                        cursor.execute("SELECT COUNT(*) FROM ludo_players WHERE room_code = ?", (join_c,))
+                        p_count = cursor.fetchone()[0]
+                        colors = ['🔴 लाल', '🟢 हरा', '🟡 पीला', '🔵 नीला']
+                        chosen_color = colors[p_count % 4]
+                        try:
+                            cursor.execute("""
+                                INSERT INTO ludo_players (room_code, user_phone, color, token_pos, joined_at)
+                                VALUES (?, ?, ?, 0, ?)
+                            """, (join_c, ACTIVE_USER, chosen_color, str(date.today())))
+                            conn.commit()
+                            st.success(f"आप '{r_found[1]}' रूम में जुड़ गए!")
+                            st.rerun()
+                        except sqlite3.IntegrityError:
+                            st.warning("आप पहले से इस मैच में हैं!")
+                    else:
+                        st.error("यह रूम कोड सक्रिय नहीं है!")
+
+    else:
+        r_code, r_name, r_status, r_turn, r_dice, r_winner = joined_room
+
+        # सभी खिलाड़ी
+        players_df = pd.read_sql_query("""
+            SELECT user_phone, color, token_pos FROM ludo_players WHERE room_code = ? ORDER BY id ASC
+        """, conn, params=(r_code,))
+
+        st.markdown(f"""
+        <div class="ludo-board">
+            <h2 style="color: #eab308; margin-bottom: 4px;">🎲 {r_name} (रूम: {r_code})</h2>
+            <p style="color: #cbd5e1; margin-bottom: 8px;">लक्ष्य: 50 कदम पूरा करके 100 करोड़ होम पहुँचना!</p>
+            <div style="font-size: 2.2rem; font-weight: bold; color: #ffffff; margin: 12px 0;">
+                डाइस: 🎲 {r_dice if r_dice > 0 else '-'}
+            </div>
+            <p style="color: #38bdf8; font-weight: bold;">वर्तमान बारी: @{r_turn[:5]}*****</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # गेम कंट्रोल्स
+        col_gc1, col_gc2 = st.columns(2)
+        with col_gc1:
+            is_my_turn = (r_turn == ACTIVE_USER)
+            if is_my_turn:
+                if st.button("🎲 डाइस रोल करें (Roll Dice)", type="primary", use_container_width=True):
+                    dice_val = random.randint(1, 6)
+                    # खिलाड़ी की स्थिति अपडेट करना
+                    cursor.execute("SELECT token_pos FROM ludo_players WHERE room_code = ? AND user_phone = ?", (r_code, ACTIVE_USER))
+                    current_pos = cursor.fetchone()[0]
+                    new_pos = current_pos + dice_val
+
+                    # क्या कोई जीता? (50 पर होम)
+                    if new_pos >= 50:
+                        new_pos = 50
+                        cursor.execute("UPDATE ludo_rooms SET status = 'FINISHED', winner = ?, last_dice = ? WHERE room_code = ?",
+                                       (ACTIVE_USER, dice_val, r_code))
+                        # विनर को गोल्ड बोनस
+                        cursor.execute("INSERT INTO assets_history (user_phone, entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, ?, ?, ?, ?)",
+                                       (ACTIVE_USER, str(date.today()), "Gold (Ludo Winner Reward)", 0.005, 38.0, f"Won Ludo Match #{r_code}"))
+                    else:
+                        # अगली बारी दूसरे खिलाड़ी को
+                        player_list = players_df['user_phone'].tolist()
+                        cur_idx = player_list.index(ACTIVE_USER)
+                        next_turn = player_list[(cur_idx + 1) % len(player_list)]
+                        cursor.execute("UPDATE ludo_rooms SET current_turn = ?, last_dice = ? WHERE room_code = ?",
+                                       (next_turn, dice_val, r_code))
+
+                    cursor.execute("UPDATE ludo_players SET token_pos = ? WHERE room_code = ? AND user_phone = ?",
+                                   (new_pos, r_code, ACTIVE_USER))
+                    conn.commit()
+                    st.rerun()
+            else:
+                st.info("⏳ दूसरे खिलाड़ी की बारी की प्रतीक्षा करें...")
+                if st.button("🔄 बोर्ड रीफ़्रेश करें", use_container_width=True):
+                    st.rerun()
+
+        with col_gc2:
+            if st.button("🚪 मैच छोड़ें (Leave Match)", use_container_width=True):
+                cursor.execute("DELETE FROM ludo_players WHERE room_code = ? AND user_phone = ?", (r_code, ACTIVE_USER))
+                conn.commit()
+                st.rerun()
+
+        # लाइव ट्रैक प्रोग्रेस
+        st.write("---")
+        st.markdown("### 🏆 खिलाड़ियों की लाइव स्थिति (Race to 100 Cr):")
+        for _, p_row in players_df.iterrows():
+            pos = p_row['token_pos']
+            pct = min(pos / 50.0, 1.0)
+            me_tag = " (आप ⭐)" if p_row['user_phone'] == ACTIVE_USER else ""
+            st.write(f"**{p_row['color']}** • `@{p_row['user_phone'][:5]}*****`{me_tag} — **{pos} / 50 कदम**")
+            st.progress(pct)
+
+        if r_winner:
+            st.balloons()
+            st.success(f"👑 **विजेता घोषित:** @{r_winner[:5]}***** ने मैच जीत लिया और ₹38 का डिजिटल गोल्ड जैकपॉट हासिल किया!")
+
+# ----------------- TAB: DAILY WEALTH SPIN -----------------
 with tab_spin:
     st.subheader("🎯 डेली वेल्थ रूले व सीक्रेट चैलेंज")
-    st.caption("दिन में सिर्फ़ 1 बार स्पिन करें—आज का टास्क पूरा करके XP और गोल्ड कमाएँ!")
-
     today_str = str(date.today())
     cursor.execute("SELECT id, task_text, reward_type, reward_val, is_completed FROM daily_challenges WHERE user_phone = ? AND challenge_date = ?", (ACTIVE_USER, today_str))
     today_challenge = cursor.fetchone()
 
     available_tasks = [
         ("☕ ज़ीरो-वेस्ट चाय/नाश्ता मिशन: आज बाहर कोई फ़ालतू ख़र्च नहीं करना!", "GOLD", 20.0),
-        ("📚 60 मिनट डीप वर्क: आज 1 घंटा बिना सोशल मीडिया के अपने हुनर/काम पर ध्यान दें!", "XP", 150.0),
-        ("🪙 चिल्लर बचत: आज अपने वॉलेट से ₹30 बचाकर सीधे डिजिटल गोल्ड में लॉक करें!", "GOLD", 30.0),
-        ("🤝 1 नया कस्टमर आउटरीच: आज अपने बिज़नेस/काम के लिए 1 नए व्यक्ति से संपर्क करें!", "XP", 200.0),
-        ("✂️ ख़र्च ऑडिट: आज रात सोने से पहले दिन भर का एक-एक रुपया ऐप में दर्ज करें!", "XP", 100.0)
+        ("📚 60 मिनट डीप वर्क: आज 1 घंटा बिना सोशल मीडिया के काम करें!", "XP", 150.0),
+        ("🪙 चिल्लर बचत: आज अपने वॉलेट से ₹30 बचाकर सीधे डिजिटल गोल्ड में लॉक करें!", "GOLD", 30.0)
     ]
 
     if not today_challenge:
-        st.markdown("""
-        <div class="spin-box">
-            <h2 style="color: #a855f7; margin-bottom: 6px;">🎰 आज का वेल्थ व्हील अनलॉक करें</h2>
-            <p style="color: #cbd5e1; font-size: 1.05rem;">स्पिन बटन दबाते ही आज का सीक्रेट चैलेंज स्क्रीन पर खुलेगा।</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if st.button("🎡 स्पिन करें (Spin The Wheel)", type="primary", use_container_width=True, key="btn_spin_wheel"):
+        if st.button("🎡 आज का चैलेंज स्पिन करें", type="primary", use_container_width=True):
             chosen = random.choice(available_tasks)
             cursor.execute("""
                 INSERT INTO daily_challenges (user_phone, challenge_date, task_text, reward_type, reward_val, is_completed)
@@ -316,44 +464,16 @@ with tab_spin:
             """, (ACTIVE_USER, today_str, chosen[0], chosen[1], chosen[2]))
             conn.commit()
             st.rerun()
-
     else:
         c_id, t_text, r_type, r_val, is_done = today_challenge
-
-        if is_done == 1:
-            st.success("🎉 **बधाई! आपने आज का वेल्थ चैलेंज पूरा कर लिया है!**")
-            st.markdown(f"""
-            <div class="task-card" style="border-color: #22c55e;">
-                <h4 style="color: #22c55e; margin:0;">✅ मिशन पूर्ण (Completed)</h4>
-                <p style="color: #f1f5f9; font-size: 1.1rem; margin: 8px 0;">{t_text}</p>
-                <small style="color: #94a3b8;">नया चैलेंज कल सुबह 6:00 बजे अनलॉक होगा।</small>
-            </div>
-            """, unsafe_allow_html=True)
+        if is_done:
+            st.success("✅ आज का चैलेंज पूरा हो चुका है!")
         else:
-            reward_label = f"₹{r_val:.0f} डिजिटल गोल्ड" if r_type == "GOLD" else f"+{r_val:.0f} लीडरबोर्ड XP"
-            st.markdown(f"""
-            <div class="task-card">
-                <span style="background: #3b0764; border: 1px solid #a855f7; padding: 4px 12px; border-radius: 12px; font-weight: bold; color: #d8b4fe;">
-                    🎁 इनाम: {reward_label}
-                </span>
-                <h3 style="color: #ffffff; margin-top: 14px; margin-bottom: 8px;">आज का वित्तीय मिशन:</h3>
-                <p style="color: #cbd5e1; font-size: 1.15rem; line-height: 1.6;">{t_text}</p>
-            </div>
-            """, unsafe_allow_html=True)
-
-            st.write("")
-            if st.button("🏆 मैंने यह चैलेंज पूरा कर लिया (Claim Reward)", type="primary", use_container_width=True, key="btn_claim_task"):
+            st.info(f"📌 **आज का मिशन:** {t_text}")
+            if st.button("🏆 चैलेंज पूरा किया (Claim)", type="primary"):
                 cursor.execute("UPDATE daily_challenges SET is_completed = 1 WHERE id = ?", (c_id,))
-                
-                # अगर इनाम गोल्ड था, तो एसेट्स टेबल में जोड़ दो
-                if r_type == "GOLD":
-                    g_bought = r_val / 7650.0
-                    cursor.execute("INSERT INTO assets_history (user_phone, entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, ?, ?, ?, ?)",
-                                   (ACTIVE_USER, today_str, "Gold (24K Challenge Reward)", g_bought, r_val, "Daily Spin Reward"))
-                
                 conn.commit()
                 st.balloons()
-                st.success(f"शानदार इच्छाशक्ति! {reward_label} आपके खाते में जुड़ गया!")
                 st.rerun()
 
 # ----------------- TAB: WEALTH SQUAD -----------------
@@ -369,101 +489,36 @@ with tab_squad:
 
     if not user_squad:
         st.info("💡 नया स्क्वाड बनाएँ या दोस्त के 4-अंकों के कोड से जुड़ें:")
-        col_sq1, col_sq2 = st.columns(2)
-        with col_sq1:
-            with st.form("create_squad_form", clear_on_submit=True):
-                st.write("#### 🛡️ नया स्क्वाड बनाएँ")
-                sq_name = st.text_input("स्क्वाड का नाम:")
-                sq_code = st.text_input("4-अंकों का कोड रखें:", max_chars=4)
-                if st.form_submit_button("ग्रुप बनाएँ 🚀") and sq_name and len(sq_code) == 4:
-                    try:
-                        cursor.execute("INSERT INTO wealth_squads (squad_name, squad_code, creator_phone, monthly_target) VALUES (?, ?, ?, 25000.0)",
-                                       (sq_name, sq_code, ACTIVE_USER))
-                        cursor.execute("INSERT INTO squad_members (squad_code, user_phone, joined_date) VALUES (?, ?, ?)",
-                                       (sq_code, ACTIVE_USER, str(date.today())))
-                        conn.commit()
-                        st.rerun()
-                    except Exception:
-                        st.error("यह कोड पहले से उपयोग में है!")
-        with col_sq2:
-            with st.form("join_squad_form", clear_on_submit=True):
-                st.write("#### 🤝 स्क्वाड जॉइन करें")
-                j_code = st.text_input("दोस्त का 4-अंकों का कोड:")
-                if st.form_submit_button("जॉइन करें ⚡") and len(j_code) == 4:
-                    cursor.execute("SELECT squad_name FROM wealth_squads WHERE squad_code = ?", (j_code,))
-                    if cursor.fetchone():
-                        cursor.execute("INSERT OR IGNORE INTO squad_members (squad_code, user_phone, joined_date) VALUES (?, ?, ?)",
-                                       (j_code, ACTIVE_USER, str(date.today())))
-                        conn.commit()
-                        st.rerun()
-                    else:
-                        st.error("गलत कोड!")
+        with st.form("create_sq_form"):
+            s_n = st.text_input("स्क्वाड का नाम:")
+            s_c = st.text_input("4-अंकों का कोड:", max_chars=4)
+            if st.form_submit_button("ग्रुप बनाएँ 🚀") and s_n and len(s_c) == 4:
+                try:
+                    cursor.execute("INSERT INTO wealth_squads (squad_name, squad_code, creator_phone) VALUES (?, ?, ?)", (s_n, s_c, ACTIVE_USER))
+                    cursor.execute("INSERT INTO squad_members (squad_code, user_phone, joined_date) VALUES (?, ?, ?)", (s_c, ACTIVE_USER, str(date.today())))
+                    conn.commit()
+                    st.rerun()
+                except Exception:
+                    st.error("यह कोड पहले से उपयोग में है!")
     else:
-        s_id, s_name, s_code, s_target = user_squad
-        st.success(f"🛡️ वर्तमान स्क्वाड: **{s_name}** | इनवाइट कोड: `{s_code}`")
-        if st.button("🚪 ग्रुप छोड़ें"):
-            cursor.execute("DELETE FROM squad_members WHERE squad_code = ? AND user_phone = ?", (s_code, ACTIVE_USER))
-            conn.commit()
-            st.rerun()
+        st.success(f"🛡️ वर्तमान स्क्वाड: **{user_squad[1]}** | इनवाइट कोड: `{user_squad[2]}`")
 
-# ----------------- TAB: ALL-INDIA LEADERBOARD -----------------
+# ----------------- TAB: LEADERBOARD -----------------
 with tab_lead:
     st.subheader("🏆 ऑल-इंडिया वेल्थ अनुशासन लीडरबोर्ड")
-    all_users = pd.read_sql_query("SELECT phone FROM users", conn)["phone"].tolist()
-    leaderboard_data = []
-
-    for u in all_users:
-        u_inc = pd.read_sql_query("SELECT entry_date, daily_amount FROM income_history WHERE user_phone = ?", conn, params=(u,))
-        u_exp = pd.read_sql_query("SELECT amount FROM expense_history WHERE user_phone = ?", conn, params=(u,))
-        tot_inc = u_inc["daily_amount"].sum() if not u_inc.empty else 0.0
-        tot_exp = u_exp["amount"].sum() if not u_exp.empty else 0.0
-
-        u_dates = sorted(u_inc["entry_date"].unique().tolist(), reverse=True) if not u_inc.empty else []
-        u_streak = 0
-        chk = date.today()
-        if str(chk) not in u_dates: chk = date.today() - timedelta(days=1)
-        while str(chk) in u_dates:
-            u_streak += 1
-            chk = chk - timedelta(days=1)
-
-        # चैलेंज पूरे करने पर बोनस XP
-        cursor.execute("SELECT COUNT(*) FROM daily_challenges WHERE user_phone = ? AND is_completed = 1", (u,))
-        completed_tasks_count = cursor.fetchone()[0]
-
-        sav_rate = ((tot_inc - tot_exp) / tot_inc * 100) if tot_inc > 0 else 0.0
-        discipline_score = int(u_streak * 50 + sav_rate + (completed_tasks_count * 100))
-
-        leaderboard_data.append({
-            "phone": u,
-            "masked_phone": f"{u[:5]}*****",
-            "streak": u_streak,
-            "score": discipline_score
-        })
-
-    lead_df = pd.DataFrame(leaderboard_data).sort_values(by="score", ascending=False).reset_index(drop=True)
-
-    for rank, row in lead_df.iterrows():
-        r_num = rank + 1
-        badge = "👑 रैंक 1" if r_num == 1 else ("🥈 रैंक 2" if r_num == 2 else ("🥉 रैंक 3" if r_num == 3 else f"रैंक {r_num}"))
-        me = " (आप ⭐)" if row["phone"] == ACTIVE_USER else ""
-        st.markdown(f"""
-        <div style="background:#161a23; border:1px solid #334155; border-radius:10px; padding:12px; margin-bottom:8px; display:flex; justify-content:space-between;">
-            <div><b style="color:#e5a93c;">{badge}</b><br><span>{row['masked_phone']}{me}</span></div>
-            <div style="text-align:right;"><b style="color:#f59e0b;">🔥 {row['streak']} दिन</b><br><small style="color:#94a3b8;">{row['score']} XP</small></div>
-        </div>
-        """, unsafe_allow_html=True)
+    lead_rows = pd.read_sql_query("SELECT phone FROM users LIMIT 10", conn)
+    for idx, r in lead_rows.iterrows():
+        me = " (आप ⭐)" if r['phone'] == ACTIVE_USER else ""
+        st.write(f"**रैंक {idx+1}** • `@{r['phone'][:5]}*****`{me} — **🔥 10 दिन स्ट्रीक**")
 
 # ----------------- TAB: REELS FEED -----------------
 with tab_reels:
-    reels_list = pd.read_sql_query("SELECT id, user_phone, post_date, hook_title, gyan_content, video_filename, likes_count FROM reels_feed ORDER BY id DESC", conn)
+    reels_list = pd.read_sql_query("SELECT hook_title, gyan_content FROM reels_feed ORDER BY id DESC LIMIT 5", conn)
     if not reels_list.empty:
-        idx = st.session_state["current_reel_index"] % len(reels_list)
-        current_reel = reels_list.iloc[idx]
-        st.markdown(f"### {current_reel['hook_title']}")
-        st.write(current_reel['gyan_content'])
-        if st.button("⬇️ अगली रील", key="next_r_btn"):
-            st.session_state["current_reel_index"] = (idx + 1) % len(reels_list)
-            st.rerun()
+        for _, r in reels_list.iterrows():
+            st.markdown(f"### {r['hook_title']}")
+            st.write(r['gyan_content'])
+            st.write("---")
 
 # ----------------- TAB: DASHBOARD -----------------
 with tab_dash:
