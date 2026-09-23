@@ -7,10 +7,10 @@ import io
 import requests
 import math
 import os
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 
 # --- Page Config ---
@@ -288,11 +288,12 @@ st.markdown(f"""
 TARGET = 1000000000  # 100 Crore
 
 st.title("👑 100 Crore Wealth Hub")
-st.caption(f"खाता: **{ACTIVE_USER}** | रिवर्स-इंजीनियरिंग, स्पीड बूस्टर व 100 Cr मिशन")
+st.caption(f"खाता: **{ACTIVE_USER}** | ऑडियो कोच, रिवर्स-इंजीनियरिंग व 100 Cr मिशन")
 
 # Tabs
-tab1, tab_reverse, tab_booster, tab_elite, tab_cal, tab_fire, tab_roundup, tab_tax, tab_ai, tab_wishlist, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab5 = st.tabs([
+tab1, tab_audio, tab_reverse, tab_booster, tab_elite, tab_cal, tab_fire, tab_roundup, tab_tax, tab_ai, tab_wishlist, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab5 = st.tabs([
     "📊 डैशबोर्ड", 
+    "🎙️ AI वेल्थ कोच",
     "🎯 रिवर्स लक्ष्य इंजन",
     "⚡ स्पीड बूस्टर",
     "👑 टॉप 1% क्लब",
@@ -374,7 +375,57 @@ while str(check_day) in unique_dates:
     streak += 1
     check_day = check_day - timedelta(days=1)
 
-# ----------------- TAB: TARGET REVERSE-ENGINE (NEW & POWERFUL) -----------------
+# ----------------- TAB: AI VOICE COACH (NEW & ENGAGING) -----------------
+with tab_audio:
+    st.subheader("🎙️ AI वेल्थ वॉइस कोच व डेली ऑडियो अफर्मेशन")
+    st.caption("सुनकर अपने सबकॉन्शियस माइंड को 100 करोड़ के वित्तीय अनुशासन के लिए तैयार करें:")
+
+    coach_mode = st.radio("ऑडियो मोड चुनें:", [
+        "⚡ दैनिक अनुशासन (Hustle & Focus Mode)",
+        "👑 एलीट माइंडसेट (Billionaire Mindset Mode)",
+        "🛡️ संकट व मंदी शील्ड (Stoic Wealth Mode)"
+    ], horizontal=True)
+
+    if "दैनिक अनुशासन" in coach_mode:
+        speech_text = f"नमस्कार! 100 करोड़ की यात्रा में आपका स्वागत है। आपकी वर्तमान नेटवर्थ ₹{total_networth:,.0f} है। याद रखिए, दौलत किसी एक बड़े जैकपॉट से नहीं, बल्कि रोज़ ₹1,000 की नई कमाई जोड़ने और फ़ालतू ख़र्च रोकने से बनती है। आज के दैनिक लक्ष्य पर अडिग रहें!"
+    elif "एलीट माइंडसेट" in coach_mode:
+        speech_text = f"दुनिया के शीर्ष 1 प्रतिशत लोग पैसे के लिए काम नहीं करते, पैसा उनके लिए काम करता है। आपका ₹{total_assets:,.0f} का एसेट पोर्टफोलियो चौबीसों घंटे बढ़ रहा है। कम्पाउंडिंग पर भरोसा रखें और धैर्य बनाए रखें।"
+    else:
+        speech_text = f"वित्तीय स्थिरता का सबसे बड़ा नियम है शांत रहना। यदि बाज़ार गिरता भी है, तो आपका हार्ड एसेट और सोना आपके अभेद्य किले हैं। अपनी बचत दर 50 प्रतिशत से ऊपर रखें और अनावश्यक देनदारियों से बचें।"
+
+    st.markdown(f"""
+    <div class="metric-box" style="text-align: left;">
+        <b>📜 आज का वॉइस संदेश:</b><br>
+        <i>"{speech_text}"</i>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # In-Browser Web Speech Synthesis
+    safe_speech_js = speech_text.replace('"', '\\"').replace('\n', ' ')
+    audio_html = f"""
+    <div style="text-align: center; margin-top: 15px;">
+        <button onclick="speakAudio()" style="background: linear-gradient(135deg, #e5a93c 0%, #b45309 100%); color: #111; font-weight: bold; border: none; padding: 12px 28px; border-radius: 25px; font-size: 1.05rem; cursor: pointer; box-shadow: 0 4px 15px rgba(229,169,60,0.4);">
+            🔊 ऑडियो कोच सुनें (Play Audio)
+        </button>
+        <button onclick="window.speechSynthesis.cancel()" style="background: #334155; color: #fff; font-weight: bold; border: none; padding: 12px 20px; border-radius: 25px; font-size: 1.05rem; cursor: pointer; margin-left: 10px;">
+            ⏹️ बंद करें
+        </button>
+    </div>
+    <script>
+    function speakAudio() {{
+        window.speechSynthesis.cancel();
+        var msg = new SpeechSynthesisUtterance("{safe_speech_js}");
+        msg.lang = 'hi-IN';
+        msg.rate = 0.95;
+        msg.pitch = 1.0;
+        window.speechSynthesis.speak(msg);
+    }}
+    </script>
+    """
+    st.components.v1.html(audio_html, height=80)
+    st.caption("💡 टिप: अपने फ़ोन की आवाज़ तेज़ रखें और 'ऑडियो कोच सुनें' बटन दबाएँ!")
+
+# ----------------- TAB: TARGET REVERSE-ENGINE -----------------
 with tab_reverse:
     st.subheader("🎯 ₹100 करोड़ का रिवर्स-गणित व दैनिक एक्शन प्लान")
     st.caption("100 करोड़ के लक्ष्य को छोटे, साफ़ और आसान दैनिक नंबरों में तोड़ें:")
@@ -397,11 +448,8 @@ with tab_reverse:
     selected_yrs = st.session_state["reverse_horizon_yrs"]
     remaining_goal = max(TARGET - total_networth, 0.0)
 
-    # 15% सालाना रिटर्न पर कम्पाउंडिंग रिवर्स गणना
     r_mo = 0.15 / 12
     n_mo = selected_yrs * 12
-    # FV = P*(1+r)^n + PMT * [((1+r)^n - 1)/r]
-    # PMT = (FV - P*(1+r)^n) * r / ((1+r)^n - 1)
     fv_from_current = total_networth * ((1 + 0.15)**selected_yrs)
     needed_from_sip = max(TARGET - fv_from_current, 0.0)
     
@@ -430,8 +478,6 @@ with tab_reverse:
 
     st.divider()
     st.markdown("#### 🏢 इस दैनिक लक्ष्य को पूरा करने के 3 बिज़नेस रास्ते:")
-    st.caption("100 करोड़ कभी केवल एक तनख्वाह से नहीं बनता, यह वॉल्यूम और वैल्यू से बनता है:")
-
     b_col1, b_col2, b_col3 = st.columns(3)
     with b_col1:
         units_500 = math.ceil(required_monthly / 500)
