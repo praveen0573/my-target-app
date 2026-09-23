@@ -91,7 +91,7 @@ def add_column_if_missing(table_name, column_name, col_type):
         cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {col_type}")
         conn.commit()
     except sqlite3.OperationalError:
-        pass  # कॉलम पहले से मौजूद है
+        pass
 
 add_column_if_missing("income_history", "user_phone", "TEXT")
 add_column_if_missing("expense_history", "user_phone", "TEXT")
@@ -99,7 +99,6 @@ add_column_if_missing("assets_history", "user_phone", "TEXT")
 add_column_if_missing("debt_history", "user_phone", "TEXT")
 add_column_if_missing("custom_wishlist", "user_phone", "TEXT")
 
-# पुराने अनाम डेटा को डिफ़ॉल्ट नंबर '9983204295' पर लिंक कर देना
 cursor.execute("UPDATE income_history SET user_phone = '9983204295' WHERE user_phone IS NULL")
 cursor.execute("UPDATE expense_history SET user_phone = '9983204295' WHERE user_phone IS NULL")
 cursor.execute("UPDATE assets_history SET user_phone = '9983204295' WHERE user_phone IS NULL")
@@ -114,7 +113,7 @@ if "logged_user" not in st.session_state:
 # --- लॉगिन / साइन-अप स्क्रीन ---
 if not st.session_state["logged_user"]:
     st.title("🔒 100 Crore Wealth Vault")
-    st.caption("हर व्यक्ति का अपना सुरक्षित, गोपनीय वित्तीय खाता।")
+    st.caption("हर व्यक्ति का अपना सुरक्षित, व्यक्तिगत वित्तीय खाता।")
 
     auth_tab1, auth_tab2 = st.tabs(["🔑 मौजूदा यूज़र लॉगिन", "📝 नया खाता बनाएँ (Sign Up)"])
 
@@ -139,7 +138,7 @@ if not st.session_state["logged_user"]:
                         else:
                             st.error("गलत पिन! कृपया सही पिन डालें।")
                     else:
-                        st.error("यह नंबर अभी पंजीकृत नहीं है! कृपया पहले 'नया खाता बनाएँ' टैब में जाकर पिन सेट करें।")
+                        st.error("यह नंबर अभी पंजीकृत नहीं है! कृपया 'नया खाता बनाएँ' टैब में जाकर पिन सेट करें।")
 
     with auth_tab2:
         st.subheader("नया 100 Cr खाता रजिस्टर करें")
@@ -409,7 +408,7 @@ with tab_roundup:
         spare_change = rounded_val - spend_amt if rounded_val > spend_amt else round_to
         st.info(f"💡 ख़र्च: ₹{spend_amt:.0f} ➔ राउंड-अप: ₹{rounded_val:.0f} ➔ **बची चिल्लर: ₹{spare_change:.0f}**")
         
-        if st.button("🟡 यह चिल्लर सीधे 24K गोल्ड में जोड़ें!"):
+        if st.button("🟡 यह चिल्लर सीधे 24K गोल्ड में जोड़ें!", key="btn_roundup_save"):
             gold_price_gram = 7650.0
             grams_bought = spare_change / gold_price_gram
             cursor.execute("INSERT INTO assets_history (user_phone, entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, ?, ?, ?, ?)",
@@ -423,7 +422,7 @@ with tab_roundup:
         st.markdown("#### ⚡ 1-क्लिक डेली गोल्ड SIP")
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
-            if st.button("🟡 ₹10 सोना खरीदें"):
+            if st.button("🟡 ₹10 सोना खरीदें", key="btn_sip_10"):
                 g_bought = 10.0 / 7650.0
                 cursor.execute("INSERT INTO assets_history (user_phone, entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, ?, ?, ?, ?)",
                                (ACTIVE_USER, today_str, "Gold (24K Daily SIP)", g_bought, 10.0, "Daily ₹10 Micro SIP"))
@@ -431,7 +430,7 @@ with tab_roundup:
                 st.success("₹10 का सोना जुड़ गया!")
                 st.rerun()
         with col_btn2:
-            if st.button("🟡 ₹50 सोना खरीदें"):
+            if st.button("🟡 ₹50 सोना खरीदें", key="btn_sip_50"):
                 g_bought = 50.0 / 7650.0
                 cursor.execute("INSERT INTO assets_history (user_phone, entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, ?, ?, ?, ?)",
                                (ACTIVE_USER, today_str, "Gold (24K Daily SIP)", g_bought, 50.0, "Daily ₹50 Micro SIP"))
@@ -519,11 +518,12 @@ with tab2:
     if not cash_df.empty:
         st.dataframe(cash_df.drop(columns=["id"]), use_container_width=True)
         csv_cash = cash_df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 कमाई CSV डाउनलोड करें", data=csv_cash, file_name=f"income_{ACTIVE_USER}.csv", mime="text/csv")
+        st.download_button("📥 कमाई CSV डाउनलोड करें", data=csv_cash, file_name=f"income_{ACTIVE_USER}.csv", mime="text/csv", key="dl_income_csv")
         with st.expander("🗑️ कमाई एंट्री हटाएँ"):
             del_id = st.selectbox("एंट्री चुनें:", options=cash_df["id"].tolist(),
-                                  format_func=lambda x: f"ID {x} - ₹{cash_df.loc[cash_df['id']==x, 'रकम (₹)'].values[0]:,.0f}")
-            if st.button("❌ मिटाएँ"):
+                                  format_func=lambda x: f"ID {x} - ₹{cash_df.loc[cash_df['id']==x, 'रकम (₹)'].values[0]:,.0f}",
+                                  key="sel_del_income")
+            if st.button("❌ मिटाएँ", key="btn_del_income"):
                 cursor.execute("DELETE FROM income_history WHERE id = ? AND user_phone = ?", (del_id, ACTIVE_USER))
                 conn.commit()
                 st.rerun()
@@ -552,8 +552,9 @@ with tab_exp:
         st.dataframe(exp_df.drop(columns=["id"]), use_container_width=True)
         with st.expander("🗑️ ख़र्च हटाएँ"):
             del_exp_id = st.selectbox("ख़र्च चुनें:", options=exp_df["id"].tolist(),
-                                      format_func=lambda x: f"ID {x} - ₹{exp_df.loc[exp_df['id']==x, 'रकम (₹)'].values[0]:,.0f}")
-            if st.button("❌ मिटाएँ"):
+                                      format_func=lambda x: f"ID {x} - ₹{exp_df.loc[exp_df['id']==x, 'रकम (₹)'].values[0]:,.0f}",
+                                      key="sel_del_exp")
+            if st.button("❌ मिटाएँ", key="btn_del_exp"):
                 cursor.execute("DELETE FROM expense_history WHERE id = ? AND user_phone = ?", (del_exp_id, ACTIVE_USER))
                 conn.commit()
                 st.rerun()
@@ -583,8 +584,9 @@ with tab_debt:
         st.dataframe(debt_df.drop(columns=["id"]), use_container_width=True)
         with st.expander("🗑️ कर्ज़ हटाएँ"):
             del_debt_id = st.selectbox("रिकॉर्ड चुनें:", options=debt_df["id"].tolist(),
-                                       format_func=lambda x: f"ID {x} - ₹{debt_df.loc[debt_df['id']==x, 'रकम (₹)'].values[0]:,.0f}")
-            if st.button("❌ मिटाएँ"):
+                                       format_func=lambda x: f"ID {x} - ₹{debt_df.loc[debt_df['id']==x, 'रकम (₹)'].values[0]:,.0f}",
+                                       key="sel_del_debt")
+            if st.button("❌ मिटाएँ", key="btn_del_debt"):
                 cursor.execute("DELETE FROM debt_history WHERE id = ? AND user_phone = ?", (del_debt_id, ACTIVE_USER))
                 conn.commit()
                 st.rerun()
@@ -644,8 +646,9 @@ with tab3:
         st.dataframe(asset_df.drop(columns=["id"]), use_container_width=True)
         with st.expander("🗑️ एसेट हटाएँ"):
             del_asset_id = st.selectbox("एसेट चुनें:", options=asset_df["id"].tolist(),
-                                        format_func=lambda x: f"ID {x} - {asset_df.loc[asset_df['id']==x, 'प्रकार'].values[0]}")
-            if st.button("❌ मिटाएँ"):
+                                        format_func=lambda x: f"ID {x} - {asset_df.loc[asset_df['id']==x, 'प्रकार'].values[0]}",
+                                        key="sel_del_asset")
+            if st.button("❌ मिटाएँ", key="btn_del_asset"):
                 cursor.execute("DELETE FROM assets_history WHERE id = ? AND user_phone = ?", (del_asset_id, ACTIVE_USER))
                 conn.commit()
                 st.rerun()
@@ -727,7 +730,8 @@ with tab1:
         label="📥 आधिकारिक वेल्थ ऑडिट PDF डाउनलोड करें",
         data=generate_wealth_pdf(),
         file_name=f"Wealth_Report_{ACTIVE_USER}_{date.today()}.pdf",
-        mime="application/pdf"
+        mime="application/pdf",
+        key="dl_wealth_pdf_btn"
     )
 
 # ----------------- TAB 4: ROADMAP -----------------
