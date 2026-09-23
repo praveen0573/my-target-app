@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import time
 import urllib.parse
+import math
 
 # --- Page Setup ---
 st.set_page_config(page_title="100 Cr Wealth Vault", page_icon="👑", layout="centered", initial_sidebar_state="collapsed")
@@ -52,8 +53,12 @@ except Exception: pass
 cursor.execute("CREATE TABLE IF NOT EXISTS income_history (id INTEGER PRIMARY KEY AUTOINCREMENT, user_phone TEXT, entry_date TEXT, daily_amount REAL, note TEXT)")
 cursor.execute("CREATE TABLE IF NOT EXISTS expense_history (id INTEGER PRIMARY KEY AUTOINCREMENT, user_phone TEXT, entry_date TEXT, amount REAL, category TEXT, note TEXT)")
 cursor.execute("CREATE TABLE IF NOT EXISTS assets_history (id INTEGER PRIMARY KEY AUTOINCREMENT, user_phone TEXT, entry_date TEXT, asset_type TEXT, quantity REAL, current_value REAL, note TEXT)")
+cursor.execute("CREATE TABLE IF NOT EXISTS debt_history (id INTEGER PRIMARY KEY AUTOINCREMENT, user_phone TEXT, entry_date TEXT, debt_type TEXT, person_name TEXT, amount REAL, note TEXT)")
 cursor.execute("CREATE TABLE IF NOT EXISTS reels_feed (id INTEGER PRIMARY KEY AUTOINCREMENT, user_phone TEXT, post_date TEXT, hook_title TEXT, gyan_content TEXT, video_filename TEXT, likes_count INTEGER DEFAULT 0)")
+cursor.execute("CREATE TABLE IF NOT EXISTS reels_comments (id INTEGER PRIMARY KEY AUTOINCREMENT, reel_id INTEGER, user_phone TEXT, comment_text TEXT, created_date TEXT)")
+cursor.execute("CREATE TABLE IF NOT EXISTS user_saved_reels (id INTEGER PRIMARY KEY AUTOINCREMENT, user_phone TEXT, reel_id INTEGER, saved_date TEXT, UNIQUE(user_phone, reel_id))")
 cursor.execute("CREATE TABLE IF NOT EXISTS daily_challenges (id INTEGER PRIMARY KEY AUTOINCREMENT, user_phone TEXT, challenge_date TEXT, task_text TEXT, reward_type TEXT, reward_val REAL, is_completed INTEGER DEFAULT 0, UNIQUE(user_phone, challenge_date))")
+cursor.execute("CREATE TABLE IF NOT EXISTS user_loot_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_phone TEXT, loot_date TEXT, nugget TEXT)")
 cursor.execute("CREATE TABLE IF NOT EXISTS ludo_rooms (room_code TEXT PRIMARY KEY, room_name TEXT, host_phone TEXT, status TEXT DEFAULT 'WAITING', current_turn TEXT, last_dice INTEGER DEFAULT 0, winner TEXT DEFAULT '')")
 cursor.execute("CREATE TABLE IF NOT EXISTS ludo_players (id INTEGER PRIMARY KEY AUTOINCREMENT, room_code TEXT, user_phone TEXT, color TEXT, token_pos INTEGER DEFAULT 0, joined_at TEXT, UNIQUE(room_code, user_phone))")
 cursor.execute("CREATE TABLE IF NOT EXISTS wealth_squads (squad_id INTEGER PRIMARY KEY AUTOINCREMENT, squad_name TEXT, squad_code TEXT UNIQUE, creator_phone TEXT, monthly_target REAL DEFAULT 25000.0)")
@@ -70,8 +75,11 @@ if cursor.fetchone()[0] == 0:
 # Session State
 if "logged_user" not in st.session_state: st.session_state["logged_user"] = None
 if "selected_future_yrs" not in st.session_state: st.session_state["selected_future_yrs"] = 5
+if "selected_ig_mins" not in st.session_state: st.session_state["selected_ig_mins"] = 30
+if "reverse_horizon_yrs" not in st.session_state: st.session_state["reverse_horizon_yrs"] = 15
+if "current_reel_index" not in st.session_state: st.session_state["current_reel_index"] = 0
 
-# --- Mobile Native CSS ---
+# --- Styling ---
 st.markdown("""
 <style>
     .stApp {
@@ -95,28 +103,12 @@ st.markdown("""
         margin-bottom: 14px;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
     }
-    .networth-title {
-        color: #94a3b8;
-        font-size: 0.8rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
     .networth-val {
         color: #f59e0b;
         font-size: 2.2rem;
         font-weight: 900;
         margin: 4px 0 8px 0;
     }
-    .stat-tile {
-        background: #121620;
-        border: 1px solid rgba(255, 255, 255, 0.07);
-        border-radius: 14px;
-        padding: 12px;
-        text-align: center;
-    }
-    .stat-label { font-size: 0.72rem; color: #94a3b8; font-weight: 600; }
-    .stat-num { font-size: 1.15rem; color: #ffffff; font-weight: 800; margin-top: 4px; }
     div.stButton > button {
         border-radius: 12px !important;
         font-weight: 700 !important;
@@ -170,16 +162,30 @@ USER = st.session_state["logged_user"]
 TARGET = 1000000000
 
 # Queries
-cash_df = pd.read_sql_query("SELECT daily_amount FROM income_history WHERE user_phone = ?", conn, params=(USER,))
-exp_df = pd.read_sql_query("SELECT amount FROM expense_history WHERE user_phone = ?", conn, params=(USER,))
-asset_df = pd.read_sql_query("SELECT current_value FROM assets_history WHERE user_phone = ?", conn, params=(USER,))
+cash_df = pd.read_sql_query("SELECT id, entry_date as 'Tariqh', daily_amount as 'Raqam (₹)', note as 'Vivran' FROM income_history WHERE user_phone = ? ORDER BY id DESC", conn, params=(USER,))
+exp_df = pd.read_sql_query("SELECT id, entry_date as 'Tariqh', amount as 'Raqam (₹)', category as 'Category', note as 'Vivran' FROM expense_history WHERE user_phone = ? ORDER BY id DESC", conn, params=(USER,))
+asset_df = pd.read_sql_query("SELECT id, entry_date as 'Tariqh', asset_type as 'Type', quantity as 'Qty', current_value as 'Value (₹)', note as 'Vivran' FROM assets_history WHERE user_phone = ? ORDER BY id DESC", conn, params=(USER,))
+debt_df = pd.read_sql_query("SELECT id, entry_date as 'Tariqh', debt_type as 'Type', person_name as 'Naam', amount as 'Raqam (₹)', note as 'Vivran' FROM debt_history WHERE user_phone = ? ORDER BY id DESC", conn, params=(USER,))
 
-inc_val = cash_df['daily_amount'].sum() if not cash_df.empty else 0.0
-exp_val = exp_df['amount'].sum() if not exp_df.empty else 0.0
-asset_val = asset_df['current_value'].sum() if not asset_df.empty else 0.0
-networth = max(inc_val - exp_val + asset_val, 0.0)
+inc_val = cash_df['Raqam (₹)'].sum() if not cash_df.empty else 0.0
+exp_val = exp_df['Raqam (₹)'].sum() if not exp_df.empty else 0.0
+net_cash = max(inc_val - exp_val, 0.0)
+asset_val = asset_df['Value (₹)'].sum() if not asset_df.empty else 0.0
 
-# Top Bar
+tot_liab = debt_df[debt_df["Type"].str.contains("लायबिलिटी|Liability", case=False, na=False)]["Raqam (₹)"].sum() if not debt_df.empty else 0.0
+tot_rec = debt_df[debt_df["Type"].str.contains("एसेट|Asset", case=False, na=False)]["Raqam (₹)"].sum() if not debt_df.empty else 0.0
+networth = max(net_cash + asset_val + tot_rec - tot_liab, 0.0)
+
+today_str = str(date.today())
+unique_dates = sorted(cash_df["Tariqh"].unique().tolist(), reverse=True) if not cash_df.empty else []
+streak = 0
+chk = date.today()
+if today_str not in unique_dates: chk = date.today() - timedelta(days=1)
+while str(chk) in unique_dates:
+    streak += 1
+    chk = chk - timedelta(days=1)
+
+# Header
 st.markdown(f"""
     <div class="app-header">
         <div>
@@ -192,20 +198,23 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# 5 Native Navigation Tabs
-nav_choice = st.radio(
-    "Navigation",
-    ["🏠 Vault", "📱 Reels Feed", "🎲 Games & Spin", "👥 Squad & Rank", "💵 Ledger"],
-    horizontal=True,
-    label_visibility="collapsed"
-)
+# ALL 16 TABS RESTORED
+(
+    tab_dash, tab_reels, tab_games, tab_squad, tab_elite, tab_detox,
+    tab_coach, tab_rev, tab_cal, tab_fire, tab_roundup, tab_tax,
+    tab_wish, tab_inc, tab_exp, tab_debt
+) = st.tabs([
+    "📊 Dashboard", "📱 Reels", "🎲 Ludo & Games", "👥 Squad & Rank", "👑 Top 1%",
+    "🔥 Detox", "🎙️ AI Coach", "🎯 Reverse Goal", "📅 Calendar", "🌴 Passive FIRE",
+    "🪙 UPI Gold", "⚖️ Tax Buffer", "🏎️ Luxury Sim", "💵 Income", "💸 Expenses", "⚖️ Karz & Assets"
+])
 
-# ----------------- 1. VAULT (HOME) -----------------
-if nav_choice == "🏠 Vault":
+# 1. DASHBOARD
+with tab_dash:
     prog_pct = min((networth / TARGET) * 100, 100.0)
     st.markdown(f"""
         <div class="app-card" style="border-color: #f59e0b;">
-            <div class="networth-title">Current Networth</div>
+            <div style="color:#94a3b8; font-size:0.8rem; font-weight:700;">TOTAL NETWORTH</div>
             <div class="networth-val">₹{networth:,.0f}</div>
             <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:#94a3b8; margin-bottom:4px;">
                 <span>100 Cr Mission</span>
@@ -215,47 +224,20 @@ if nav_choice == "🏠 Vault":
     """, unsafe_allow_html=True)
     st.progress(min(networth / TARGET, 1.0))
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown(f"""<div class="stat-tile"><div class="stat-label">CASH SAVINGS</div><div class="stat-num" style="color:#22c55e;">₹{max(inc_val - exp_val, 0.0):,.0f}</div></div>""", unsafe_allow_html=True)
-    with col2:
-        st.markdown(f"""<div class="stat-tile"><div class="stat-label">GOLD & ASSETS</div><div class="stat-num" style="color:#eab308;">₹{asset_val:,.0f}</div></div>""", unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
+    with c1: st.metric("Cash In Hand", f"₹{net_cash:,.0f}")
+    with c2: st.metric("Gold & Assets", f"₹{asset_val:,.0f}")
+    with c3: st.metric("Liabilities", f"₹{tot_liab:,.0f}")
 
-    st.write("")
-    st.markdown("#### ⚡ 1-Tap Quick Action")
-    q1, q2 = st.columns(2)
-    with q1:
-        if st.button("🟡 ₹10 Gold Buy", use_container_width=True):
-            cursor.execute("INSERT INTO assets_history (user_phone, entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, 'Gold (24K)', 0.0013, 10.0, '1-Tap SIP')", (USER, str(date.today())))
-            conn.commit()
-            st.toast("₹10 Sona jud gaya!")
-            st.rerun()
-    with q2:
-        if st.button("🔥 Detox (+₹20 Gold)", use_container_width=True):
-            cursor.execute("INSERT INTO assets_history (user_phone, entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, 'Gold (Detox)', 0.0026, 20.0, 'Detox Reward')", (USER, str(date.today())))
-            conn.commit()
-            st.toast("₹20 Gold Reward!")
-            st.rerun()
+    st.write("---")
+    if st.button("Logout 🔒", key="logout_btn", use_container_width=True):
+        st.session_state["logged_user"] = None
+        st.rerun()
 
-    st.markdown("#### ⏳ Future Time Machine")
-    tb1, tb2, tb3 = st.columns(3)
-    with tb1:
-        if st.button("3 Saal", use_container_width=True): st.session_state["selected_future_yrs"] = 3
-    with tb2:
-        if st.button("5 Saal", use_container_width=True): st.session_state["selected_future_yrs"] = 5
-    with tb3:
-        if st.button("10 Saal", use_container_width=True): st.session_state["selected_future_yrs"] = 10
-
-    fy = st.session_state["selected_future_yrs"]
-    fc = networth * ((1 + 0.15)**fy) + (10000 * (((1 + 0.0125)**(fy * 12) - 1) / 0.0125))
-    st.info(f"💡 **{fy} Saal Baad Networth:** ₹{fc:,.0f} | **Passive Salary:** ₹{(fc*0.04)/12:,.0f}/mo")
-
-# ----------------- 2. REELS FEED (CREATE & SHARE) -----------------
-elif nav_choice == "📱 Reels Feed":
+# 2. REELS (FULL WITH UPLOAD & SHARE)
+with tab_reels:
     st.markdown("### 📱 100 Cr Wealth Reels & Community")
-
-    # Reel Create & Upload Expander
-    with st.expander("➕ Nayi Reel Banayein / Video Post Karein", expanded=False):
+    with st.expander("➕ Nayi Reel Banayein / Upload Karein", expanded=False):
         with st.form("create_reel_f", clear_on_submit=True):
             r_title = st.text_input("Reel Title / Hook:", placeholder="Jaise: 90% log ye galti karte hain...")
             r_text = st.text_area("Gyan / Wealth Lesson:", placeholder="Apna lesson likhein jo dusron ko inspire kare...")
@@ -276,7 +258,6 @@ elif nav_choice == "📱 Reels Feed":
                     st.rerun()
                 else: st.error("Title aur text zaroor bharein!")
 
-    # Live Feed
     reels = pd.read_sql_query("SELECT id, user_phone, post_date, hook_title, gyan_content, video_filename, likes_count FROM reels_feed ORDER BY id DESC LIMIT 20", conn)
     if not reels.empty:
         for _, r in reels.iterrows():
@@ -295,30 +276,25 @@ elif nav_choice == "📱 Reels Feed":
                 vp = os.path.join(UPLOADS_DIR, r['video_filename'])
                 if os.path.exists(vp): st.video(vp)
 
-            # Action Buttons: Like, Gold, WhatsApp Share
             c_act1, c_act2, c_act3 = st.columns([1.2, 1.4, 2])
             with c_act1:
                 if st.button(f"❤️ {r['likes_count']}", key=f"rk_{r['id']}", use_container_width=True):
                     cursor.execute("UPDATE reels_feed SET likes_count = likes_count + 1 WHERE id = ?", (r['id'],))
                     conn.commit()
                     st.rerun()
-
             with c_act2:
                 if st.button("🪙 ₹10 Gold", key=f"rg_{r['id']}", use_container_width=True):
                     cursor.execute("INSERT INTO assets_history (user_phone, entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, 'Gold (Reel Reward)', 0.0013, 10.0, 'Reel Reward')", (USER, str(date.today())))
                     conn.commit()
                     st.toast("₹10 Gold mila!")
-
             with c_act3:
-                # WhatsApp Share Link
                 share_msg = f"🔥 100 Crore Mindset Reel:\n*{r['hook_title']}*\n\n\"{r['gyan_content']}\"\n\nJoin 100 Crore Vault App: https://100-crore-target.streamlit.app"
                 wa_url = f"https://api.whatsapp.com/send?text={urllib.parse.quote(share_msg)}"
                 st.markdown(f'<a href="{wa_url}" target="_blank" style="text-decoration:none;"><button style="width:100%; background:#25D366; color:white; font-weight:bold; border:none; padding:8px; border-radius:12px; cursor:pointer;">📲 WhatsApp Share</button></a>', unsafe_allow_html=True)
-
             st.write("---")
 
-# ----------------- 3. GAMES (LUDO & DAILY SPIN) -----------------
-elif nav_choice == "🎲 Games & Spin":
+# 3. GAMES & LUDO
+with tab_games:
     st.markdown("### 🎲 Online Multi-Player Ludo")
     cursor.execute("""
         SELECT r.room_code, r.room_name, r.current_turn, r.last_dice 
@@ -332,7 +308,7 @@ elif nav_choice == "🎲 Games & Spin":
         c_l1, c_l2 = st.columns(2)
         with c_l1:
             with st.form("ludo_create_f"):
-                r_code = st.text_input("Create 4-Digit Code:", max_chars=4, value="4455")
+                r_code = st.text_input("Room Code:", max_chars=4, value="4455")
                 if st.form_submit_button("Room Banayein 🎲", use_container_width=True):
                     try:
                         cursor.execute("INSERT INTO ludo_rooms (room_code, room_name, host_phone, current_turn) VALUES (?, 'Battle Arena', ?, ?)", (r_code, USER, USER))
@@ -342,21 +318,14 @@ elif nav_choice == "🎲 Games & Spin":
                     except Exception: st.error("Code pehle se chuna hai!")
         with c_l2:
             with st.form("ludo_join_f"):
-                j_code = st.text_input("Friend's Code:", max_chars=4)
+                j_code = st.text_input("Friend Code:", max_chars=4)
                 if st.form_submit_button("Join Match ⚡", use_container_width=True):
                     cursor.execute("INSERT OR IGNORE INTO ludo_players (room_code, user_phone, color, joined_at) VALUES (?, ?, '🟢 Green', ?)", (j_code, USER, str(date.today())))
                     conn.commit()
                     st.rerun()
     else:
         rc, rn, rturn, rdice = room_data
-        st.markdown(f"""
-            <div class="app-card" style="text-align:center; border-color:#38bdf8;">
-                <h3 style="color:#38bdf8; margin:0;">MATCH ROOM: {rc}</h3>
-                <div style="font-size:2.6rem; margin:8px 0;">🎲 {rdice if rdice > 0 else '-'}</div>
-                <small style="color:#94a3b8;">Turn: @{rturn[:5]}*****</small>
-            </div>
-        """, unsafe_allow_html=True)
-
+        st.info(f"Room: **{rc}** | Turn: `@{rturn[:5]}*****` | Last Dice: 🎲 {rdice}")
         if rturn == USER:
             if st.button("ROLL DICE 🎲", type="primary", use_container_width=True):
                 dv = random.randint(1, 6)
@@ -369,7 +338,7 @@ elif nav_choice == "🎲 Games & Spin":
                 conn.commit()
                 st.rerun()
         else:
-            if st.button("🔄 Refresh Board", use_container_width=True): st.rerun()
+            if st.button("🔄 Refresh Turn", use_container_width=True): st.rerun()
 
         if st.button("Leave Match", use_container_width=True):
             cursor.execute("DELETE FROM ludo_players WHERE room_code = ? AND user_phone = ?", (rc, USER))
@@ -377,7 +346,7 @@ elif nav_choice == "🎲 Games & Spin":
             st.rerun()
 
     st.write("---")
-    st.markdown("### 🎡 Daily Wealth Roulette Spin")
+    st.markdown("### 🎡 Daily Wealth Spin")
     cursor.execute("SELECT task_text, is_completed FROM daily_challenges WHERE user_phone = ? AND challenge_date = ?", (USER, str(date.today())))
     ch_data = cursor.fetchone()
     if not ch_data:
@@ -395,13 +364,13 @@ elif nav_choice == "🎲 Games & Spin":
                 st.rerun()
         else: st.success("✅ Mission Completed!")
 
-# ----------------- 4. SQUAD & LEADERBOARD -----------------
-elif nav_choice == "👥 Squad & Rank":
-    st.markdown("### 👥 Wealth Squad & Leaderboard")
+# 4. SQUAD & LEADERBOARD
+with tab_squad:
+    st.subheader("👥 Wealth Squad")
     cursor.execute("SELECT s.squad_name, s.squad_code FROM wealth_squads s INNER JOIN squad_members m ON s.squad_code = m.squad_code WHERE m.user_phone = ?", (USER,))
     sq_user = cursor.fetchone()
     if sq_user:
-        st.success(f"Group: **{sq_user[0]}** | Code: `{sq_user[1]}`")
+        st.success(f"Group: **{sq_user[0]}** | Invite Code: `{sq_user[1]}`")
     else:
         with st.form("sq_f"):
             sn = st.text_input("Squad Name:")
@@ -415,32 +384,152 @@ elif nav_choice == "👥 Squad & Rank":
                 except Exception: st.error("Code used!")
 
     st.write("---")
-    st.markdown("### 🏆 All-India Leaderboard")
+    st.subheader("🏆 All-India Leaderboard")
     lead_rows = pd.read_sql_query("SELECT phone FROM users LIMIT 8", conn)
     for idx, r in lead_rows.iterrows():
         me = " (आप ⭐)" if r['phone'] == USER else ""
         st.write(f"**Rank {idx+1}** • `@{r['phone'][:5]}*****`{me} — **🔥 Active**")
 
-# ----------------- 5. LEDGER (INCOME / EXPENSE) -----------------
-elif nav_choice == "💵 Ledger":
-    st.markdown("### 💵 Quick Income & Expense Ledger")
-    c_in, c_ex = st.columns(2)
-    with c_in:
-        with st.form("in_f", clear_on_submit=True):
-            amt = st.number_input("+ Kamai (₹):", min_value=0.0, step=500.0)
-            if st.form_submit_button("Save Kamai 💾", type="primary", use_container_width=True) and amt > 0:
-                cursor.execute("INSERT INTO income_history (user_phone, entry_date, daily_amount, note) VALUES (?, ?, ?, 'Cash')", (USER, str(date.today()), amt))
-                conn.commit()
-                st.rerun()
-    with c_ex:
-        with st.form("ex_f", clear_on_submit=True):
-            e_amt = st.number_input("- Kharch (₹):", min_value=0.0, step=100.0)
-            if st.form_submit_button("Save Kharch 💸", use_container_width=True) and e_amt > 0:
-                cursor.execute("INSERT INTO expense_history (user_phone, entry_date, amount, category, note) VALUES (?, ?, ?, 'Daily', 'Kharch')", (USER, str(date.today()), e_amt))
-                conn.commit()
-                st.rerun()
+# 5. TOP 1% CLUB & TIME MACHINE
+with tab_elite:
+    st.subheader("👑 Top 1% Wealth Club")
+    badge = "🔱 TITAN" if networth >= 10000000 else "🐺 LONE HUSTLER"
+    st.markdown(f"""
+    <div class="app-card" style="text-align:center;">
+        <h4 style="color:#e5a93c;">STATUS: {badge}</h4>
+        <h2>Networth: ₹{networth:,.0f}</h2>
+        <p>Streak: 🔥 {streak} Days Active</p>
+    </div>
+    """, unsafe_allow_html=True)
 
-    st.write("---")
-    if st.button("Logout 🔒", use_container_width=True):
-        st.session_state["logged_user"] = None
+    st.write("#### ⏳ Future Time Machine (Buttons):")
+    b1, b2, b3, b4 = st.columns(4)
+    with b1: 
+        if st.button("🚀 3 Saal", key="tm3"): st.session_state["selected_future_yrs"] = 3
+    with b2: 
+        if st.button("🚀 5 Saal", key="tm5"): st.session_state["selected_future_yrs"] = 5
+    with b3: 
+        if st.button("🚀 10 Saal", key="tm10"): st.session_state["selected_future_yrs"] = 10
+    with b4: 
+        if st.button("👑 15 Saal", key="tm15"): st.session_state["selected_future_yrs"] = 15
+
+    y = st.session_state["selected_future_yrs"]
+    f_val = networth * ((1 + 0.15)**y) + (10000 * (((1 + 0.0125)**(y * 12) - 1) / 0.0125))
+    st.metric(f"{y} Saal Baad Networth", f"₹{f_val:,.0f}")
+
+# 6. DETOX
+with tab_detox:
+    st.subheader("🔥 Reels Detox Calculator (Buttons)")
+    cd1, cd2, cd3, cd4 = st.columns(4)
+    with cd1:
+        if st.button("15 Min", key="d15"): st.session_state["selected_ig_mins"] = 15
+    with cd2:
+        if st.button("30 Min", key="d30"): st.session_state["selected_ig_mins"] = 30
+    with cd3:
+        if st.button("60 Min", key="d60"): st.session_state["selected_ig_mins"] = 60
+    with cd4:
+        if st.button("120 Min", key="d120"): st.session_state["selected_ig_mins"] = 120
+    m = st.session_state["selected_ig_mins"]
+    burn = (m / 60.0) * 300.0
+    st.error(f"⚠️ {m} minute reels dekhne se ₹{burn:,.0f} ka samay jala diya!")
+
+# 7. AI COACH
+with tab_coach:
+    st.subheader("🎙️ AI Wealth Voice Coach")
+    speech_text = f"Namaskar! Aapki networth ₹{networth:,.0f} hai. Daily discipline hi 100 Crore ka rasta hai."
+    st.info(f"📜 {speech_text}")
+    safe_speech_js = speech_text.replace('"', '\\"').replace('\n', ' ')
+    audio_html = f"""
+    <div style="text-align: center; margin-top: 10px;">
+        <button onclick="speakAudio()" style="background: linear-gradient(135deg, #e5a93c 0%, #b45309 100%); color: #111; font-weight: bold; border: none; padding: 10px 24px; border-radius: 20px; cursor: pointer;">
+            🔊 Audio Coach Suney (Play)
+        </button>
+    </div>
+    <script>
+    function speakAudio() {{
+        window.speechSynthesis.cancel();
+        var msg = new SpeechSynthesisUtterance("{safe_speech_js}");
+        msg.lang = 'hi-IN';
+        window.speechSynthesis.speak(msg);
+    }}
+    </script>
+    """
+    st.components.v1.html(audio_html, height=70)
+
+# 8. REVERSE GOAL
+with tab_rev:
+    st.subheader("🎯 100 Crore Reverse-Engine Goal")
+    r1, r2, r3 = st.columns(3)
+    with r1:
+        if st.button("⏱️ 10 Saal", key="rv10"): st.session_state["reverse_horizon_yrs"] = 10
+    with r2:
+        if st.button("⏱️ 15 Saal", key="rv15"): st.session_state["reverse_horizon_yrs"] = 15
+    with r3:
+        if st.button("⏱️ 20 Saal", key="rv20"): st.session_state["reverse_horizon_yrs"] = 20
+    sy = st.session_state["reverse_horizon_yrs"]
+    st.metric(f"{sy} Saal me 100 Cr ka Daily Target", f"₹{(TARGET / (sy * 365)):,.0f} / din")
+
+# 9. CALENDAR
+with tab_cal:
+    st.subheader("📅 Financial Calendar Diary")
+    sel_dt = str(st.date_input("Date Chunein:", value=date.today()))
+    d_inc = cash_df[cash_df["Tariqh"] == sel_dt]["Raqam (₹)"].sum() if not cash_df.empty else 0.0
+    d_exp = exp_df[exp_df["Tariqh"] == sel_dt]["Raqam (₹)"].sum() if not exp_df.empty else 0.0
+    st.metric("Net Daily Savings", f"₹{d_inc - d_exp:,.0f}")
+
+# 10. PASSIVE FIRE
+with tab_fire:
+    st.subheader("🌴 Passive FIRE Engine")
+    st.metric("Monthly Passive Income (4% Rule)", f"₹{(networth * 0.04) / 12:,.0f} / mo")
+
+# 11. UPI GOLD
+with tab_roundup:
+    st.subheader("🪙 Micro Gold SIP")
+    if st.button("🟡 ₹10 Sona Kharidein"):
+        cursor.execute("INSERT INTO assets_history (user_phone, entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, 'Gold (24K Micro SIP)', 0.0013, 10.0, 'Daily SIP')", (USER, today_str))
+        conn.commit()
+        st.success("₹10 gold added!")
         st.rerun()
+
+# 12. TAX BUFFER
+with tab_tax:
+    st.subheader("⚖️ Tax Buffer & Clean Wealth")
+    st.metric("Clean In-Hand Networth", f"₹{max(net_cash - (inc_val * 0.15), 0.0) + asset_val:,.0f}")
+
+# 13. LUXURY SIMULATOR
+with tab_wish:
+    st.subheader("🏎️ Luxury Simulator")
+    st.progress(min(networth / 8500000, 1.0))
+    st.caption("Sports Car Goal Progress")
+
+# 14. INCOME
+with tab_inc:
+    st.subheader("💵 Income Record")
+    with st.form("inc_form_master", clear_on_submit=True):
+        i_amt = st.number_input("Amount (₹):", min_value=0.0, step=500.0)
+        i_note = st.text_input("Source / Note:", value="Business")
+        if st.form_submit_button("Save Income") and i_amt > 0:
+            cursor.execute("INSERT INTO income_history (user_phone, entry_date, daily_amount, note) VALUES (?, ?, ?, ?)", (USER, today_str, i_amt, i_note))
+            conn.commit()
+            st.rerun()
+    if not cash_df.empty: st.dataframe(cash_df.drop(columns=["id"]), use_container_width=True)
+
+# 15. EXPENSES
+with tab_exp:
+    st.subheader("💸 Expense Record")
+    with st.form("exp_form_master", clear_on_submit=True):
+        e_amt = st.number_input("Amount (₹):", min_value=0.0, step=100.0)
+        e_note = st.text_input("Category / Note:", value="Daily")
+        if st.form_submit_button("Save Expense") and e_amt > 0:
+            cursor.execute("INSERT INTO expense_history (user_phone, entry_date, amount, category, note) VALUES (?, ?, ?, ?, ?)", (USER, today_str, e_amt, e_note, e_note))
+            conn.commit()
+            st.rerun()
+    if not exp_df.empty: st.dataframe(exp_df.drop(columns=["id"]), use_container_width=True)
+
+# 16. KARZ & ASSETS
+with tab_debt:
+    st.subheader("⚖️ Karz, Debt & Physical Assets")
+    st.write("#### Assets:")
+    if not asset_df.empty: st.dataframe(asset_df.drop(columns=["id"]), use_container_width=True)
+    st.write("#### Liabilities (Karz):")
+    if not debt_df.empty: st.dataframe(debt_df.drop(columns=["id"]), use_container_width=True)
