@@ -28,13 +28,14 @@ cursor.execute("""
     )
 """)
 
-# डिफ़ॉल्ट मोबाइल नंबर जांचें
+# आपका प्राथमिक मोबाइल नंबर सेट करना
+PRIMARY_MOBILE = "9983204295"
 cursor.execute("SELECT setting_value FROM app_settings WHERE setting_key = 'auth_mobile'")
 mob_row = cursor.fetchone()
-if not mob_row:
-    cursor.execute("INSERT INTO app_settings (setting_key, setting_value) VALUES ('auth_mobile', '9876543210')")
+if not mob_row or mob_row[0] == "9876543210":
+    cursor.execute("INSERT OR REPLACE INTO app_settings (setting_key, setting_value) VALUES ('auth_mobile', ?)", (PRIMARY_MOBILE,))
     conn.commit()
-    REGISTERED_MOBILE = "9876543210"
+    REGISTERED_MOBILE = PRIMARY_MOBILE
 else:
     REGISTERED_MOBILE = mob_row[0]
 
@@ -102,7 +103,7 @@ if not st.session_state["authenticated"]:
 
     col_m1, col_m2 = st.columns([3, 1])
     with col_m1:
-        phone_input = st.text_input("अपना 10-अंकों का मोबाइल नंबर दर्ज करें:", max_chars=10, placeholder="उदा. 9876543210")
+        phone_input = st.text_input("अपना 10-अंकों का मोबाइल नंबर दर्ज करें:", max_chars=10, value=REGISTERED_MOBILE)
     with col_m2:
         st.write("")
         st.write("")
@@ -119,7 +120,7 @@ if not st.session_state["authenticated"]:
                 st.warning("कृपया मान्य 10 अंकों का मोबाइल नंबर डालें।")
 
     if st.session_state["generated_otp"]:
-        st.info(f"🔑 सुरक्षा कोड (OTP): **{st.session_state['generated_otp']}** (नंबर: {st.session_state['otp_sent_to']})")
+        st.info(f"🔑 सुरक्षा कोड (OTP): **{st.session_state['generated_otp']}**")
         user_otp = st.text_input("4-अंकों का OTP दर्ज करें:", max_chars=4, type="password")
         if st.button("लॉगिन सत्यापित करें 🔓", type="primary"):
             if user_otp == st.session_state["generated_otp"]:
@@ -131,7 +132,7 @@ if not st.session_state["authenticated"]:
                 st.error("गलत OTP! कृपया सही कोड दर्ज करें।")
     
     st.divider()
-    st.caption(f"ℹ️ वर्तमान पंजीकृत नंबर: `{REGISTERED_MOBILE}` (लॉगिन के बाद साइडबार से बदला जा सकता है)")
+    st.caption(f"ℹ️ वर्तमान पंजीकृत नंबर: `{REGISTERED_MOBILE}`")
     st.stop()
 
 # --- साइडबार थीम व मोबाइल नंबर सेटिंग्स ---
@@ -347,12 +348,9 @@ else:
 # ----------------- TAB: PASSIVE FIRE FREEDOM ENGINE -----------------
 with tab_fire:
     st.subheader("🌴 पैसिव कैशफ़्लो व वित्तीय आज़ादी इंजन (FIRE & Passive Income)")
-    st.caption("काम किए बिना हर महीने कितना पैसा खुद आएगा? 4% ग्लोबल वेल्थ रूल:")
-
     col_fi1, col_fi2 = st.columns(2)
     with col_fi1:
         withdrawal_rate = st.slider("पैसिव विथड्रॉल दर (% वार्षिक):", min_value=3.0, max_value=8.0, value=4.0, step=0.5)
-        st.caption("4% नियम: मूल पूँजी कभी कम नहीं होगी और ज़िंदगी भर पैसिव आय आती रहेगी।")
     with col_fi2:
         annual_passive = total_networth * (withdrawal_rate / 100)
         monthly_passive = annual_passive / 12
