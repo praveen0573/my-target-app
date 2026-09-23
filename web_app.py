@@ -20,7 +20,7 @@ DB_PATH = "wealth_data.db"
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 cursor = conn.cursor()
 
-# पिन स्टोरेज टेबल
+# ऐप सेटिंग्स (मोबाइल नंबर स्टोरेज)
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS app_settings (
         setting_key TEXT PRIMARY KEY,
@@ -28,15 +28,15 @@ cursor.execute("""
     )
 """)
 
-# डिफ़ॉल्ट पिन इनिशियलाइज़ेशन (शुरुआत में 1234)
-cursor.execute("SELECT setting_value FROM app_settings WHERE setting_key = 'security_pin'")
-pin_row = cursor.fetchone()
-if not pin_row:
-    cursor.execute("INSERT INTO app_settings (setting_key, setting_value) VALUES ('security_pin', '1234')")
+# डिफ़ॉल्ट मोबाइल नंबर जांचें
+cursor.execute("SELECT setting_value FROM app_settings WHERE setting_key = 'auth_mobile'")
+mob_row = cursor.fetchone()
+if not mob_row:
+    cursor.execute("INSERT INTO app_settings (setting_key, setting_value) VALUES ('auth_mobile', '9876543210')")
     conn.commit()
-    CURRENT_PIN = "1234"
+    REGISTERED_MOBILE = "9876543210"
 else:
-    CURRENT_PIN = pin_row[0]
+    REGISTERED_MOBILE = mob_row[0]
 
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS income_history (
@@ -88,24 +88,53 @@ cursor.execute("""
 """)
 conn.commit()
 
-# --- सुरक्षा पिन ऑथेंटिकेशन ---
+# --- मोबाइल + OTP लॉगिन सिस्टम ---
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
+if "generated_otp" not in st.session_state:
+    st.session_state["generated_otp"] = None
+if "otp_sent_to" not in st.session_state:
+    st.session_state["otp_sent_to"] = None
 
 if not st.session_state["authenticated"]:
     st.title("🔒 100 Crore Wealth Vault")
-    st.caption("सुरक्षित वित्तीय ऐप में प्रवेश के लिए पिन दर्ज करें।")
-    pin_input = st.text_input("अपना गुप्त पिन डालें:", type="password")
-    if st.button("लॉगिन करें 🔓", type="primary"):
-        if pin_input == CURRENT_PIN:
-            st.session_state["authenticated"] = True
-            st.success("सफलतापूर्वक अनलॉक हुआ!")
-            st.rerun()
-        else:
-            st.error("गलत पिन! कृपया सही पिन दर्ज करें।")
+    st.caption("सुरक्षित मोबाइल लॉगिन: अपने पंजीकृत नंबर से प्रवेश करें।")
+
+    col_m1, col_m2 = st.columns([3, 1])
+    with col_m1:
+        phone_input = st.text_input("अपना 10-अंकों का मोबाइल नंबर दर्ज करें:", max_chars=10, placeholder="उदा. 9876543210")
+    with col_m2:
+        st.write("")
+        st.write("")
+        if st.button("OTP भेजें 📩"):
+            if len(phone_input) == 10 and phone_input.isdigit():
+                if phone_input == REGISTERED_MOBILE:
+                    new_otp = str(random.randint(1000, 9999))
+                    st.session_state["generated_otp"] = new_otp
+                    st.session_state["otp_sent_to"] = phone_input
+                    st.success(f"✅ OTP भेजा गया: **{new_otp}**")
+                else:
+                    st.error("यह नंबर पंजीकृत नहीं है! कृपया सही नंबर दर्ज करें।")
+            else:
+                st.warning("कृपया मान्य 10 अंकों का मोबाइल नंबर डालें।")
+
+    if st.session_state["generated_otp"]:
+        st.info(f"🔑 सुरक्षा कोड (OTP): **{st.session_state['generated_otp']}** (नंबर: {st.session_state['otp_sent_to']})")
+        user_otp = st.text_input("4-अंकों का OTP दर्ज करें:", max_chars=4, type="password")
+        if st.button("लॉगिन सत्यापित करें 🔓", type="primary"):
+            if user_otp == st.session_state["generated_otp"]:
+                st.session_state["authenticated"] = True
+                st.session_state["generated_otp"] = None
+                st.success("सफलतापूर्वक लॉगिन हो गया!")
+                st.rerun()
+            else:
+                st.error("गलत OTP! कृपया सही कोड दर्ज करें।")
+    
+    st.divider()
+    st.caption(f"ℹ️ वर्तमान पंजीकृत नंबर: `{REGISTERED_MOBILE}` (लॉगिन के बाद साइडबार से बदला जा सकता है)")
     st.stop()
 
-# --- साइडबार थीम व सुरक्षा सेटिंग्स ---
+# --- साइडबार थीम व मोबाइल नंबर सेटिंग्स ---
 with st.sidebar:
     st.title("🎨 थीम व सेटिंग्स")
     theme_choice = st.selectbox(
@@ -114,25 +143,23 @@ with st.sidebar:
     )
     
     st.divider()
-    st.subheader("🔐 पिन बदलें (Change PIN)")
-    with st.expander("अपना सुरक्षा पिन अपडेट करें"):
-        with st.form("change_pin_form", clear_on_submit=True):
-            old_p = st.text_input("मौजूदा पुराना पिन:", type="password")
-            new_p = st.text_input("नया 4-अंकों का पिन:", type="password", max_chars=8)
-            confirm_p = st.text_input("नए पिन की पुष्टि करें:", type="password", max_chars=8)
-            submit_pin_change = st.form_submit_button("💾 नया पिन सेव करें")
+    st.subheader("📱 मोबाइल नंबर सेटिंग्स")
+    st.caption(f"वर्तमान लॉगिन नंबर: **{REGISTERED_MOBILE}**")
+    with st.expander("पंजीकृत मोबाइल नंबर बदलें"):
+        with st.form("change_mobile_form", clear_on_submit=True):
+            new_mob = st.text_input("नया 10-अंकों का मोबाइल नंबर:", max_chars=10)
+            confirm_mob = st.text_input("नंबर दोबारा डालें:", max_chars=10)
+            submit_mob_change = st.form_submit_button("💾 नया नंबर सेव करें")
 
-            if submit_pin_change:
-                if old_p != CURRENT_PIN:
-                    st.error("पुराना पिन गलत है!")
-                elif len(new_p) < 4:
-                    st.error("नया पिन कम से कम 4 अंकों का होना चाहिए!")
-                elif new_p != confirm_p:
-                    st.error("नया पिन और पुष्टि पिन मेल नहीं खा रहे हैं!")
+            if submit_mob_change:
+                if len(new_mob) != 10 or not new_mob.isdigit():
+                    st.error("कृपया 10 अंकों का मान्य मोबाइल नंबर दर्ज करें!")
+                elif new_mob != confirm_mob:
+                    st.error("दोनों नंबर मेल नहीं खा रहे हैं!")
                 else:
-                    cursor.execute("UPDATE app_settings SET setting_value = ? WHERE setting_key = 'security_pin'", (new_p,))
+                    cursor.execute("UPDATE app_settings SET setting_value = ? WHERE setting_key = 'auth_mobile'", (new_mob,))
                     conn.commit()
-                    st.success("पिन सफलतापूर्वक बदल गया! कृपया नए पिन से दोबारा लॉगिन करें।")
+                    st.success(f"नंबर बदलकर {new_mob} हो गया! कृपया दोबारा लॉगिन करें।")
                     st.session_state["authenticated"] = False
                     st.rerun()
 
@@ -244,7 +271,7 @@ st.markdown(f"""
 TARGET = 1000000000  # 100 करोड़
 
 st.title("👑 100 Crore Wealth Hub")
-st.caption("कस्टम पिन सुरक्षा, पैसिव इनकम, बैकअप इंजन व 100 Cr रोडमैप")
+st.caption("मोबाइल OTP सुरक्षा, पैसिव इनकम, बैकअप इंजन व 100 Cr रोडमैप")
 
 # टैब्स
 tab1, tab_fire, tab_roundup, tab_tax, tab_ai, tab_wishlist, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab_blueprint, tab5 = st.tabs([
