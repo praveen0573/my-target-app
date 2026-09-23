@@ -15,42 +15,36 @@ from reportlab.lib import colors
 # --- पेज कॉन्फ़िगरेशन ---
 st.set_page_config(page_title="100 Crore Wealth Hub", page_icon="👑", layout="centered")
 
-# --- डेटाबेस सेटअप ---
+# --- डेटाबेस सेटअप (मल्टी-यूज़र आर्किटेक्चर) ---
 DB_PATH = "wealth_data.db"
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 cursor = conn.cursor()
 
-# ऐप सेटिंग्स (मोबाइल नंबर स्टोरेज)
+# यूज़र अकाउंट टेबल
 cursor.execute("""
-    CREATE TABLE IF NOT EXISTS app_settings (
-        setting_key TEXT PRIMARY KEY,
-        setting_value TEXT
+    CREATE TABLE IF NOT EXISTS users (
+        phone TEXT PRIMARY KEY,
+        pin TEXT,
+        created_at TEXT
     )
 """)
 
-# आपका प्राथमिक मोबाइल नंबर सेट करना
-PRIMARY_MOBILE = "9983204295"
-cursor.execute("SELECT setting_value FROM app_settings WHERE setting_key = 'auth_mobile'")
-mob_row = cursor.fetchone()
-if not mob_row or mob_row[0] == "9876543210":
-    cursor.execute("INSERT OR REPLACE INTO app_settings (setting_key, setting_value) VALUES ('auth_mobile', ?)", (PRIMARY_MOBILE,))
-    conn.commit()
-    REGISTERED_MOBILE = PRIMARY_MOBILE
-else:
-    REGISTERED_MOBILE = mob_row[0]
-
+# कमाई टेबल (यूज़र फ़ोन के साथ)
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS income_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_phone TEXT,
         entry_date TEXT,
         daily_amount REAL,
         note TEXT
     )
 """)
 
+# ख़र्च टेबल
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS expense_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_phone TEXT,
         entry_date TEXT,
         amount REAL,
         category TEXT,
@@ -58,9 +52,11 @@ cursor.execute("""
     )
 """)
 
+# एसेट्स टेबल
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS assets_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_phone TEXT,
         entry_date TEXT,
         asset_type TEXT,
         quantity REAL,
@@ -69,9 +65,11 @@ cursor.execute("""
     )
 """)
 
+# कर्ज़ टेबल
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS debt_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_phone TEXT,
         entry_date TEXT,
         debt_type TEXT,
         person_name TEXT,
@@ -80,115 +78,130 @@ cursor.execute("""
     )
 """)
 
+# विशलिस्ट टेबल
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS custom_wishlist (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_phone TEXT,
         item_name TEXT,
         cost REAL
     )
 """)
 conn.commit()
 
-# --- मोबाइल + OTP लॉगिन सिस्टम ---
-if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
-if "generated_otp" not in st.session_state:
-    st.session_state["generated_otp"] = None
-if "otp_sent_to" not in st.session_state:
-    st.session_state["otp_sent_to"] = None
+# --- सेशन स्टेट इनिशियलाइज़ेशन ---
+if "logged_user" not in st.session_state:
+    st.session_state["logged_user"] = None
 
-if not st.session_state["authenticated"]:
+# --- लॉगिन / साइन-अप स्क्रीन ---
+if not st.session_state["logged_user"]:
     st.title("🔒 100 Crore Wealth Vault")
-    st.caption("सुरक्षित मोबाइल लॉगिन: अपने पंजीकृत नंबर से प्रवेश करें।")
+    st.caption("हर व्यक्ति का अपना सुरक्षित, गोपनीय वित्तीय खाता।")
 
-    col_m1, col_m2 = st.columns([3, 1])
-    with col_m1:
-        phone_input = st.text_input("अपना 10-अंकों का मोबाइल नंबर दर्ज करें:", max_chars=10, value=REGISTERED_MOBILE)
-    with col_m2:
-        st.write("")
-        st.write("")
-        if st.button("OTP भेजें 📩"):
-            if len(phone_input) == 10 and phone_input.isdigit():
-                if phone_input == REGISTERED_MOBILE:
-                    new_otp = str(random.randint(1000, 9999))
-                    st.session_state["generated_otp"] = new_otp
-                    st.session_state["otp_sent_to"] = phone_input
-                    st.success(f"✅ OTP भेजा गया: **{new_otp}**")
+    auth_tab1, auth_tab2 = st.tabs(["🔑 मौजूदा यूज़र लॉगिन", "📝 नया खाता बनाएँ (Sign Up)"])
+
+    # 1. मौजूदा यूज़र लॉगिन
+    with auth_tab1:
+        st.subheader("अपने नंबर से प्रवेश करें")
+        with st.form("login_form"):
+            l_phone = st.text_input("मोबाइल नंबर (10 अंक):", max_chars=10, placeholder="उदा. 9876543210")
+            l_pin = st.text_input("अपना 4-अंकों का गुप्त पिन दर्ज करें:", type="password", max_chars=4)
+            submit_login = st.form_submit_button("लॉगिन करें 🔓", type="primary")
+
+            if submit_login:
+                if len(l_phone) != 10 or not l_phone.isdigit():
+                    st.error("कृपया 10 अंकों का मान्य मोबाइल नंबर डालें!")
                 else:
-                    st.error("यह नंबर पंजीकृत नहीं है! कृपया सही नंबर दर्ज करें।")
-            else:
-                st.warning("कृपया मान्य 10 अंकों का मोबाइल नंबर डालें।")
+                    cursor.execute("SELECT pin FROM users WHERE phone = ?", (l_phone,))
+                    user_data = cursor.fetchone()
+                    if user_data:
+                        if user_data[0] == l_pin:
+                            st.session_state["logged_user"] = l_phone
+                            st.success("सफलतापूर्वक लॉगिन हो गया!")
+                            st.rerun()
+                        else:
+                            st.error("गलत पिन! कृपया सही पिन डालें।")
+                    else:
+                        st.error("यह नंबर पंजीकृत नहीं है! कृपया पहले 'नया खाता बनाएँ' टैब में जाकर रजिस्टर करें।")
 
-    if st.session_state["generated_otp"]:
-        st.info(f"🔑 सुरक्षा कोड (OTP): **{st.session_state['generated_otp']}**")
-        user_otp = st.text_input("4-अंकों का OTP दर्ज करें:", max_chars=4, type="password")
-        if st.button("लॉगिन सत्यापित करें 🔓", type="primary"):
-            if user_otp == st.session_state["generated_otp"]:
-                st.session_state["authenticated"] = True
-                st.session_state["generated_otp"] = None
-                st.success("सफलतापूर्वक लॉगिन हो गया!")
-                st.rerun()
-            else:
-                st.error("गलत OTP! कृपया सही कोड दर्ज करें।")
-    
-    st.divider()
-    st.caption(f"ℹ️ वर्तमान पंजीकृत नंबर: `{REGISTERED_MOBILE}`")
+    # 2. नया खाता बनाना (पब्लिक रजिस्ट्रेशन)
+    with auth_tab2:
+        st.subheader("नया 100 Cr खाता रजिस्टर करें")
+        st.caption("कोई भी व्यक्ति 10 सेकंड में अपना नया खाता शुरू कर सकता है:")
+        with st.form("signup_form"):
+            s_phone = st.text_input("अपना 10-अंकों का मोबाइल नंबर डालें:", max_chars=10)
+            s_pin = st.text_input("अपना नया 4-अंकों का पिन सेट करें:", type="password", max_chars=4)
+            s_pin_confirm = st.text_input("पिन दोबारा दर्ज करें:", type="password", max_chars=4)
+            submit_signup = st.form_submit_button("खाता बनाएँ व लॉगिन करें 🚀")
+
+            if submit_signup:
+                if len(s_phone) != 10 or not s_phone.isdigit():
+                    st.error("कृपया 10 अंकों का मान्य मोबाइल नंबर दर्ज करें!")
+                elif len(s_pin) != 4 or not s_pin.isdigit():
+                    st.error("पिन ठीक 4 अंकों का होना चाहिए!")
+                elif s_pin != s_pin_confirm:
+                    st.error("दोनों पिन मेल नहीं खा रहे हैं!")
+                else:
+                    cursor.execute("SELECT phone FROM users WHERE phone = ?", (s_phone,))
+                    if cursor.fetchone():
+                        st.warning("यह नंबर पहले से पंजीकृत है! कृपया 'लॉगिन' टैब से प्रवेश करें।")
+                    else:
+                        cursor.execute("INSERT INTO users (phone, pin, created_at) VALUES (?, ?, ?)",
+                                       (s_phone, s_pin, str(date.today())))
+                        conn.commit()
+                        st.session_state["logged_user"] = s_phone
+                        st.success("बधाई हो! आपका नया खाता तैयार हो गया है।")
+                        st.rerun()
     st.stop()
 
-# --- साइडबार थीम व मोबाइल नंबर सेटिंग्स ---
+# ==================== यहाँ से आगे केवल लॉगिन यूज़र का डेटा दिखेगा ====================
+ACTIVE_USER = st.session_state["logged_user"]
+
+# --- साइडबार थीम व यूज़र प्रोफ़ाइल ---
 with st.sidebar:
-    st.title("🎨 थीम व सेटिंग्स")
+    st.title("👤 यूज़र प्रोफ़ाइल")
+    st.success(f"लॉगिन नंबर: **{ACTIVE_USER}**")
+    
     theme_choice = st.selectbox(
-        "अपनी पसंद का रंग चुनें:",
+        "पसंदीदा थीम चुनें:",
         ["🌟 रॉयल गोल्ड डार्क", "☀️ क्लासिक ब्राइट लाइट", "🌌 डीप नेवी ब्लू", "🌿 लग्ज़री ग्रीन"]
     )
     
     st.divider()
-    st.subheader("📱 मोबाइल नंबर सेटिंग्स")
-    st.caption(f"वर्तमान लॉगिन नंबर: **{REGISTERED_MOBILE}**")
-    with st.expander("पंजीकृत मोबाइल नंबर बदलें"):
-        with st.form("change_mobile_form", clear_on_submit=True):
-            new_mob = st.text_input("नया 10-अंकों का मोबाइल नंबर:", max_chars=10)
-            confirm_mob = st.text_input("नंबर दोबारा डालें:", max_chars=10)
-            submit_mob_change = st.form_submit_button("💾 नया नंबर सेव करें")
-
-            if submit_mob_change:
-                if len(new_mob) != 10 or not new_mob.isdigit():
-                    st.error("कृपया 10 अंकों का मान्य मोबाइल नंबर दर्ज करें!")
-                elif new_mob != confirm_mob:
-                    st.error("दोनों नंबर मेल नहीं खा रहे हैं!")
+    st.subheader("🔐 अपना पिन बदलें")
+    with st.expander("पिन अपडेट करें"):
+        with st.form("user_change_pin"):
+            u_old = st.text_input("पुराना पिन:", type="password", max_chars=4)
+            u_new = st.text_input("नया पिन:", type="password", max_chars=4)
+            if st.form_submit_button("💾 नया पिन सेव करें"):
+                cursor.execute("SELECT pin FROM users WHERE phone = ?", (ACTIVE_USER,))
+                cur_p = cursor.fetchone()[0]
+                if u_old != cur_p:
+                    st.error("पुराना पिन गलत है!")
+                elif len(u_new) != 4 or not u_new.isdigit():
+                    st.error("नया पिन 4 अंकों का होना चाहिए!")
                 else:
-                    cursor.execute("UPDATE app_settings SET setting_value = ? WHERE setting_key = 'auth_mobile'", (new_mob,))
+                    cursor.execute("UPDATE users SET pin = ? WHERE phone = ?", (u_new, ACTIVE_USER))
                     conn.commit()
-                    st.success(f"नंबर बदलकर {new_mob} हो गया! कृपया दोबारा लॉगिन करें।")
-                    st.session_state["authenticated"] = False
-                    st.rerun()
+                    st.success("पिन बदल गया!")
 
     st.divider()
-    st.subheader("💾 डेटा बैकअप व रीस्टोर")
+    st.subheader("💾 बैकअप व सुरक्षा")
     if os.path.exists(DB_PATH):
         with open(DB_PATH, "rb") as fp:
             st.download_button(
-                label="📥 डेटाबेस बैकअप डाउनलोड करें",
+                label="📥 बैकअप डाउनलोड करें",
                 data=fp,
-                file_name=f"wealth_backup_{date.today()}.db",
+                file_name=f"wealth_backup_{ACTIVE_USER}_{date.today()}.db",
                 mime="application/octet-stream"
             )
-            
-    uploaded_db = st.file_uploader("📤 बैकअप फ़ाइल अपलोड करें (.db):", type=["db"])
-    if uploaded_db is not None:
-        if st.button("🔄 डेटा रीस्टोर करें"):
-            conn.close()
-            with open(DB_PATH, "wb") as f:
-                f.write(uploaded_db.getbuffer())
-            st.success("डेटा सफलतापूर्वक रीस्टोर हो गया!")
-            st.rerun()
 
     st.divider()
-    if st.button("लॉगआउट 🔒"):
-        st.session_state["authenticated"] = False
+    if st.button("लॉगआउट करें 🔒", type="primary"):
+        st.session_state["logged_user"] = None
         st.rerun()
 
+# --- थीम्स CSS ---
 if theme_choice == "☀️ क्लासिक ब्राइट लाइट":
     bg_color = "#ffffff"
     text_color = "#111827"
@@ -210,7 +223,7 @@ elif theme_choice == "🌿 लग्ज़री ग्रीन":
     tab_bg = "#14532d"
     btn_bg = "#4ade80"
     btn_text = "#052e16"
-else:  # रॉयल गोल्ड डार्क
+else:
     bg_color = "#111318"
     text_color = "#ffffff"
     accent = "#f59e0b"
@@ -220,62 +233,25 @@ else:  # रॉयल गोल्ड डार्क
 
 st.markdown(f"""
     <style>
-    .stApp {{
-        background-color: {bg_color} !important;
-        color: {text_color} !important;
-    }}
-    label, p, h1, h2, h3, span, div {{
-        color: {text_color} !important;
-    }}
-    div[data-testid="stMetricValue"] {{
-        color: {accent} !important;
-        font-weight: 800 !important;
-        font-size: 1.85rem;
-    }}
-    div[data-testid="stMetricLabel"] {{
-        color: {text_color} !important;
-        font-weight: 600 !important;
-    }}
-    .stTabs [data-baseweb="tab-list"] {{
-        gap: 6px;
-    }}
-    .stTabs [data-baseweb="tab"] {{
-        background-color: {tab_bg} !important;
-        border-radius: 8px;
-        color: {text_color} !important;
-        padding: 6px 12px;
-        font-size: 0.9rem;
-    }}
-    .stTabs [aria-selected="true"] {{
-        border-bottom: 3px solid {accent} !important;
-        font-weight: 700 !important;
-    }}
-    .stDownloadButton button {{
-        background-color: {btn_bg} !important;
-        color: {btn_text} !important;
-        font-weight: bold !important;
-        border: none !important;
-        padding: 10px 22px !important;
-        border-radius: 8px !important;
-    }}
-    .flex-card {{
-        background: linear-gradient(135deg, #1f2430 0%, #0d0f14 100%);
-        border: 2px solid #d4af37;
-        border-radius: 16px;
-        padding: 24px;
-        text-align: center;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-    }}
+    .stApp {{ background-color: {bg_color} !important; color: {text_color} !important; }}
+    label, p, h1, h2, h3, span, div {{ color: {text_color} !important; }}
+    div[data-testid="stMetricValue"] {{ color: {accent} !important; font-weight: 800 !important; font-size: 1.85rem; }}
+    div[data-testid="stMetricLabel"] {{ color: {text_color} !important; font-weight: 600 !important; }}
+    .stTabs [data-baseweb="tab-list"] {{ gap: 6px; }}
+    .stTabs [data-baseweb="tab"] {{ background-color: {tab_bg} !important; border-radius: 8px; color: {text_color} !important; padding: 6px 12px; font-size: 0.9rem; }}
+    .stTabs [aria-selected="true"] {{ border-bottom: 3px solid {accent} !important; font-weight: 700 !important; }}
+    .stDownloadButton button {{ background-color: {btn_bg} !important; color: {btn_text} !important; font-weight: bold !important; border: none !important; padding: 10px 22px !important; border-radius: 8px !important; }}
+    .flex-card {{ background: linear-gradient(135deg, #1f2430 0%, #0d0f14 100%); border: 2px solid #d4af37; border-radius: 16px; padding: 24px; text-align: center; }}
     </style>
 """, unsafe_allow_html=True)
 
 TARGET = 1000000000  # 100 करोड़
 
 st.title("👑 100 Crore Wealth Hub")
-st.caption("मोबाइल OTP सुरक्षा, पैसिव इनकम, बैकअप इंजन व 100 Cr रोडमैप")
+st.caption(f"व्यक्तिगत खाता: **{ACTIVE_USER}** | नकद, सोना, संपत्तियां व 100 Cr का सफ़र")
 
-# टैब्स
-tab1, tab_fire, tab_roundup, tab_tax, tab_ai, tab_wishlist, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab_blueprint, tab5 = st.tabs([
+# 15 टैब्स
+tab1, tab_fire, tab_roundup, tab_tax, tab_ai, tab_wishlist, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab_blueprint = st.tabs([
     "📊 डैशबोर्ड", 
     "🌴 पैसिव आज़ादी",
     "🪙 UPI राउंड-अप",
@@ -290,15 +266,14 @@ tab1, tab_fire, tab_roundup, tab_tax, tab_ai, tab_wishlist, tab_game, tab2, tab_
     "📈 बचत दर", 
     "🥇 गोल्ड व संपत्तियां", 
     "🚀 100 Cr रोडमैप",
-    "⚡ ब्लूप्रिंट",
-    "🔥 स्ट्राइक"
+    "⚡ ब्लूप्रिंट"
 ])
 
-# ----------------- डेटा फ़ेचिंग -----------------
-cash_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', daily_amount as 'रकम (₹)', note as 'विवरण' FROM income_history ORDER BY id DESC", conn)
-exp_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', amount as 'रकम (₹)', category as 'श्रेणी', note as 'विवरण' FROM expense_history ORDER BY id DESC", conn)
-asset_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', asset_type as 'प्रकार', quantity as 'मात्रा', current_value as 'मूल्य (₹)', note as 'विवरण' FROM assets_history ORDER BY id DESC", conn)
-debt_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', debt_type as 'प्रकार', person_name as 'नाम', amount as 'रकम (₹)', note as 'विवरण' FROM debt_history ORDER BY id DESC", conn)
+# ----------------- केवल इसी लॉगिन यूज़र का डेटा फ़िल्टर करना -----------------
+cash_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', daily_amount as 'रकम (₹)', note as 'विवरण' FROM income_history WHERE user_phone = ? ORDER BY id DESC", conn, params=(ACTIVE_USER,))
+exp_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', amount as 'रकम (₹)', category as 'श्रेणी', note as 'विवरण' FROM expense_history WHERE user_phone = ? ORDER BY id DESC", conn, params=(ACTIVE_USER,))
+asset_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', asset_type as 'प्रकार', quantity as 'मात्रा', current_value as 'मूल्य (₹)', note as 'विवरण' FROM assets_history WHERE user_phone = ? ORDER BY id DESC", conn, params=(ACTIVE_USER,))
+debt_df = pd.read_sql_query("SELECT id, entry_date as 'तारीख', debt_type as 'प्रकार', person_name as 'नाम', amount as 'रकम (₹)', note as 'विवरण' FROM debt_history WHERE user_phone = ? ORDER BY id DESC", conn, params=(ACTIVE_USER,))
 
 total_gross_income = cash_df["रकम (₹)"].sum() if not cash_df.empty else 0.0
 total_expenses = exp_df["रकम (₹)"].sum() if not exp_df.empty else 0.0
@@ -347,7 +322,7 @@ else:
 
 # ----------------- TAB: PASSIVE FIRE FREEDOM ENGINE -----------------
 with tab_fire:
-    st.subheader("🌴 पैसिव कैशफ़्लो व वित्तीय आज़ादी इंजन (FIRE & Passive Income)")
+    st.subheader("🌴 पैसिव कैशफ़्लो व वित्तीय आज़ादी इंजन")
     col_fi1, col_fi2 = st.columns(2)
     with col_fi1:
         withdrawal_rate = st.slider("पैसिव विथड्रॉल दर (% वार्षिक):", min_value=3.0, max_value=8.0, value=4.0, step=0.5)
@@ -363,7 +338,6 @@ with tab_fire:
     t_annual_passive = TARGET * (withdrawal_rate / 100)
     t_monthly_passive = t_annual_passive / 12
     t_daily_passive = t_annual_passive / 365
-
     col_tw1, col_tw2, col_tw3 = st.columns(3)
     with col_tw1:
         st.metric("सालाना पैसिव कैश", f"₹{t_annual_passive/10000000:.1f} करोड़/वर्ष")
@@ -404,8 +378,8 @@ with tab_roundup:
         if st.button("🟡 यह चिल्लर सीधे 24K गोल्ड में जोड़ें!"):
             gold_price_gram = 7650.0
             grams_bought = spare_change / gold_price_gram
-            cursor.execute("INSERT INTO assets_history (entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, ?, ?, ?)",
-                           (today_str, "Gold (24K Round-up)", grams_bought, spare_change, f"UPI Round-up on ₹{spend_amt} spend"))
+            cursor.execute("INSERT INTO assets_history (user_phone, entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, ?, ?, ?, ?)",
+                           (ACTIVE_USER, today_str, "Gold (24K Round-up)", grams_bought, spare_change, f"UPI Round-up on ₹{spend_amt} spend"))
             conn.commit()
             st.balloons()
             st.success(f"शानदार! ₹{spare_change:.0f} का सोना ({grams_bought:.4f} ग्राम) जुड़ गया!")
@@ -417,16 +391,16 @@ with tab_roundup:
         with col_btn1:
             if st.button("🟡 ₹10 सोना खरीदें"):
                 g_bought = 10.0 / 7650.0
-                cursor.execute("INSERT INTO assets_history (entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, ?, ?, ?)",
-                               (today_str, "Gold (24K Daily SIP)", g_bought, 10.0, "Daily ₹10 Micro SIP"))
+                cursor.execute("INSERT INTO assets_history (user_phone, entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, ?, ?, ?, ?)",
+                               (ACTIVE_USER, today_str, "Gold (24K Daily SIP)", g_bought, 10.0, "Daily ₹10 Micro SIP"))
                 conn.commit()
                 st.success("₹10 का सोना जुड़ गया!")
                 st.rerun()
         with col_btn2:
             if st.button("🟡 ₹50 सोना खरीदें"):
                 g_bought = 50.0 / 7650.0
-                cursor.execute("INSERT INTO assets_history (entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, ?, ?, ?)",
-                               (today_str, "Gold (24K Daily SIP)", g_bought, 50.0, "Daily ₹50 Micro SIP"))
+                cursor.execute("INSERT INTO assets_history (user_phone, entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, ?, ?, ?, ?)",
+                               (ACTIVE_USER, today_str, "Gold (24K Daily SIP)", g_bought, 50.0, "Daily ₹50 Micro SIP"))
                 conn.commit()
                 st.success("₹50 का सोना जुड़ गया!")
                 st.rerun()
@@ -435,12 +409,12 @@ with tab_roundup:
 with tab_ai:
     st.subheader("🧠 AI वेल्थ मेंटॉर व स्ट्रेस-टेस्ट")
     if total_networth == 0:
-        st.info("💡 **AI डायग्नोसिस:** अभी सिस्टम में पूँजी दर्ज नहीं है। पहली कमाई और सोने की बचत से यात्रा शुरू करें।")
+        st.info("💡 **AI डायग्नोसिस:** अभी आपके खाते में कोई एंट्री दर्ज नहीं है। कमाई व बचत जोड़कर शुरुआत करें।")
     else:
         cash_ratio = (total_net_cash / total_networth) * 100 if total_networth > 0 else 0
         asset_ratio = (total_assets / total_networth) * 100 if total_networth > 0 else 0
         if cash_ratio > 70:
-            st.warning(f"⚠️ **AI चेतावनी:** आपकी {cash_ratio:.1f}% पूँजी नकद में है। इसे तुरंत सोने या एसेट्स में बदलें!")
+            st.warning(f"⚠️ **AI चेतावनी:** आपकी {cash_ratio:.1f}% पूँजी नकद में है। इसे सोने या एसेट्स में बदलें!")
         elif asset_ratio > 70:
             st.success(f"🎯 **AI इनसाइट:** आपका 70%+ पोर्टफोलियो वास्तविक एसेट्स में सुरक्षित है।")
         else:
@@ -451,11 +425,11 @@ with tab_wishlist:
     st.subheader("🏎️ लग्ज़री शॉपिंग व विशलिस्ट सिमुलेटर")
     luxury_items = [
         {"icon": "⌚", "name": "रोलेक्स / लक्ज़री घड़ी", "cost": 1500000},
-        {"icon": "🏎️", "name": "लक्ज़री स्पोर्ट्स कार (BMW/Merc)", "cost": 8500000},
+        {"icon": "🏎️", "name": "लक्ज़री स्पोर्ट्स कार", "cost": 8500000},
         {"icon": "👑", "name": "रोल्स-रॉयस फैंटम", "cost": 95000000},
-        {"icon": "🏰", "name": "अल्ट्रा-लक्ज़री पेंटहाउस / महल", "cost": 250000000},
+        {"icon": "🏰", "name": "अल्ट्रा-लक्ज़री पेंटहाउस", "cost": 250000000},
         {"icon": "✈️", "name": "प्राइवेट जेट", "cost": 450000000},
-        {"icon": "🏝️", "name": "प्राइवेट आइलैंड एस्टेट", "cost": 850000000}
+        {"icon": "🏝️", "name": "प्राइवेट आइलैंड", "cost": 850000000}
     ]
     for item in luxury_items:
         c_cost = item["cost"]
@@ -502,16 +476,23 @@ with tab2:
         submit_cash = st.form_submit_button("💾 कमाई सेव करें")
 
         if submit_cash and daily_income > 0:
-            cursor.execute("INSERT INTO income_history (entry_date, daily_amount, note) VALUES (?, ?, ?)",
-                           (str(entry_date), daily_income, final_note))
+            cursor.execute("INSERT INTO income_history (user_phone, entry_date, daily_amount, note) VALUES (?, ?, ?, ?)",
+                           (ACTIVE_USER, str(entry_date), daily_income, final_note))
             conn.commit()
-            st.success(f"₹{daily_income:,.0f} जुड़ गए!")
+            st.success(f"₹{daily_income:,.0f} आपके खाते में जुड़ गए!")
             st.rerun()
 
     if not cash_df.empty:
         st.dataframe(cash_df.drop(columns=["id"]), use_container_width=True)
         csv_cash = cash_df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 कमाई CSV डाउनलोड करें", data=csv_cash, file_name="income_records.csv", mime="text/csv")
+        st.download_button("📥 कमाई CSV डाउनलोड करें", data=csv_cash, file_name=f"income_{ACTIVE_USER}.csv", mime="text/csv")
+        with st.expander("🗑️ कमाई एंट्री हटाएँ"):
+            del_id = st.selectbox("एंट्री चुनें:", options=cash_df["id"].tolist(),
+                                  format_func=lambda x: f"ID {x} - ₹{cash_df.loc[cash_df['id']==x, 'रकम (₹)'].values[0]:,.0f}")
+            if st.button("❌ मिटाएँ"):
+                cursor.execute("DELETE FROM income_history WHERE id = ? AND user_phone = ?", (del_id, ACTIVE_USER))
+                conn.commit()
+                st.rerun()
 
 # ----------------- TAB: EXPENSES -----------------
 with tab_exp:
@@ -527,14 +508,21 @@ with tab_exp:
         submit_exp = st.form_submit_button("💾 ख़र्च दर्ज करें")
 
         if submit_exp and exp_amt > 0:
-            cursor.execute("INSERT INTO expense_history (entry_date, amount, category, note) VALUES (?, ?, ?, ?)",
-                           (str(exp_date), exp_amt, exp_cat, exp_note))
+            cursor.execute("INSERT INTO expense_history (user_phone, entry_date, amount, category, note) VALUES (?, ?, ?, ?, ?)",
+                           (ACTIVE_USER, str(exp_date), exp_amt, exp_cat, exp_note))
             conn.commit()
             st.warning(f"₹{exp_amt:,.0f} ख़र्च दर्ज हुए!")
             st.rerun()
 
     if not exp_df.empty:
         st.dataframe(exp_df.drop(columns=["id"]), use_container_width=True)
+        with st.expander("🗑️ ख़र्च हटाएँ"):
+            del_exp_id = st.selectbox("ख़र्च चुनें:", options=exp_df["id"].tolist(),
+                                      format_func=lambda x: f"ID {x} - ₹{exp_df.loc[exp_df['id']==x, 'रकम (₹)'].values[0]:,.0f}")
+            if st.button("❌ मिटाएँ"):
+                cursor.execute("DELETE FROM expense_history WHERE id = ? AND user_phone = ?", (del_exp_id, ACTIVE_USER))
+                conn.commit()
+                st.rerun()
 
 # ----------------- TAB: DEBT / LOAN -----------------
 with tab_debt:
@@ -551,14 +539,21 @@ with tab_debt:
         submit_debt = st.form_submit_button("💾 कर्ज़ रिकॉर्ड सेव करें")
 
         if submit_debt and d_amount > 0:
-            cursor.execute("INSERT INTO debt_history (entry_date, debt_type, person_name, amount, note) VALUES (?, ?, ?, ?, ?)",
-                           (str(d_date), debt_type, d_person, d_amount, d_note))
+            cursor.execute("INSERT INTO debt_history (user_phone, entry_date, debt_type, person_name, amount, note) VALUES (?, ?, ?, ?, ?, ?)",
+                           (ACTIVE_USER, str(d_date), debt_type, d_person, d_amount, d_note))
             conn.commit()
             st.success("कर्ज़ रिकॉर्ड जुड़ गया!")
             st.rerun()
 
     if not debt_df.empty:
         st.dataframe(debt_df.drop(columns=["id"]), use_container_width=True)
+        with st.expander("🗑️ कर्ज़ हटाएँ"):
+            del_debt_id = st.selectbox("रिकॉर्ड चुनें:", options=debt_df["id"].tolist(),
+                                       format_func=lambda x: f"ID {x} - ₹{debt_df.loc[debt_df['id']==x, 'रकम (₹)'].values[0]:,.0f}")
+            if st.button("❌ मिटाएँ"):
+                cursor.execute("DELETE FROM debt_history WHERE id = ? AND user_phone = ?", (del_debt_id, ACTIVE_USER))
+                conn.commit()
+                st.rerun()
 
 # ----------------- TAB 3: GOLD & ASSETS -----------------
 with tab3:
@@ -571,65 +566,95 @@ with tab3:
     with col_gr3:
         st.info("⚪ शुद्ध चाँदी: **₹92 / ग्राम**")
 
+    asset_mode = st.radio("जोड़ने का तरीक़ा:", ["गोल्ड कैलकुलेटर (ग्राम अनुसार)", "अन्य अचल संपत्ति"], horizontal=True)
+
+    with st.form("asset_form", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            asset_date = st.date_input("तारीख", value=date.today(), key="asset_date")
+        
+        if asset_mode == "गोल्ड कैलकुलेटर (ग्राम अनुसार)":
+            with col2:
+                gold_purity = st.selectbox("शुद्धता", ["24K (99.9% शुद्ध सोना)", "22K (गहने/ज्वेलरी)", "चाँदी (Silver)"])
+            default_rate = 7650.0 if "24" in gold_purity else (7050.0 if "22" in gold_purity else 92.0)
+            c_g1, c_g2 = st.columns(2)
+            with c_g1:
+                grams = st.number_input("मात्रा (ग्राम में):", min_value=0.1, value=10.0, step=0.5)
+            with c_g2:
+                rate_per_gram = st.number_input("भाव प्रति ग्राम (₹):", min_value=50.0, value=default_rate, step=50.0)
+            calc_val = grams * rate_per_gram
+            st.write(f"💡 कुल मूल्य: **₹{calc_val:,.0f}**")
+            asset_type = f"Gold ({gold_purity})" if "2" in gold_purity else "Silver"
+            final_val = calc_val
+            final_qty = grams
+            asset_note = st.text_input("नोट:", value=f"{grams}g @ ₹{rate_per_gram}/g")
+        else:
+            with col2:
+                asset_type = st.selectbox("प्रकार", ["ज़मीन / प्लॉट", "मकान / दुकान", "शेयर / म्यूचुअल फंड", "अन्य संपत्ति"])
+            c_m1, c_m2 = st.columns(2)
+            with c_m1:
+                final_val = st.number_input("कुल मौजूदा मूल्यांकन (₹):", min_value=1000.0, step=5000.0)
+            with c_m2:
+                final_qty = st.number_input("मात्रा / यूनिट्स:", min_value=1.0, value=1.0, step=1.0)
+            asset_note = st.text_input("विवरण:", value="दीर्घकालिक संपत्ति")
+
+        submit_asset = st.form_submit_button("💾 एसेट सेव करें")
+        if submit_asset and final_val > 0:
+            cursor.execute("INSERT INTO assets_history (user_phone, entry_date, asset_type, quantity, current_value, note) VALUES (?, ?, ?, ?, ?, ?)",
+                           (ACTIVE_USER, str(asset_date), asset_type, final_qty, final_val, asset_note))
+            conn.commit()
+            st.success("एसेट जुड़ गया!")
+            st.rerun()
+
     if not asset_df.empty:
         st.dataframe(asset_df.drop(columns=["id"]), use_container_width=True)
+        with st.expander("🗑️ एसेट हटाएँ"):
+            del_asset_id = st.selectbox("एसेट चुनें:", options=asset_df["id"].tolist(),
+                                        format_func=lambda x: f"ID {x} - {asset_df.loc[asset_df['id']==x, 'प्रकार'].values[0]}")
+            if st.button("❌ मिटाएँ"):
+                cursor.execute("DELETE FROM assets_history WHERE id = ? AND user_phone = ?", (del_asset_id, ACTIVE_USER))
+                conn.commit()
+                st.rerun()
 
 # ----------------- TAB: HEALTH SCORE -----------------
 with tab_health:
     st.subheader("🩺 फाइनेंशियल हेल्थ ऑडिट")
     score = 0
-    if savings_rate >= 60:
-        score += 35
-    elif savings_rate >= 40:
-        score += 25
-    elif savings_rate > 0:
-        score += 15
+    if savings_rate >= 60: score += 35
+    elif savings_rate >= 40: score += 25
+    elif savings_rate > 0: score += 15
 
-    if total_liabilities == 0 and total_networth > 0:
-        score += 30
-    elif total_liabilities < (total_networth * 0.2):
-        score += 20
-    else:
-        score += 5
+    if total_liabilities == 0 and total_networth > 0: score += 30
+    elif total_liabilities < (total_networth * 0.2): score += 20
+    else: score += 5
 
-    if total_assets > 0 and total_net_cash > 0:
-        score += 20
-    elif total_assets > 0 or total_net_cash > 0:
-        score += 10
+    if total_assets > 0 and total_net_cash > 0: score += 20
+    elif total_assets > 0 or total_net_cash > 0: score += 10
 
-    if len(cash_df) >= 5:
-        score += 15
-    elif len(cash_df) > 0:
-        score += 8
+    if len(cash_df) >= 5: score += 15
+    elif len(cash_df) > 0: score += 8
 
     col_sc1, col_sc2 = st.columns([1, 2])
-    with col_sc1:
-        st.metric("वेल्थ स्कोर", f"{score} / 100")
-    with col_sc2:
-        st.progress(score / 100)
+    with col_sc1: st.metric("वेल्थ स्कोर", f"{score} / 100")
+    with col_sc2: st.progress(score / 100)
 
 # ----------------- TAB: ANALYTICS & BUDGET -----------------
 with tab_analytics:
     st.subheader("📈 बचत दर विश्लेषण")
     col_an1, col_an2, col_an3 = st.columns(3)
-    with col_an1:
-        st.metric("कुल कमाई", f"₹{total_gross_income:,.0f}")
-    with col_an2:
-        st.metric("कुल ख़र्च", f"₹{total_expenses:,.0f}")
-    with col_an3:
-        st.metric("बचत दर", f"{savings_rate:.1f}%")
+    with col_an1: st.metric("कुल कमाई", f"₹{total_gross_income:,.0f}")
+    with col_an2: st.metric("कुल ख़र्च", f"₹{total_expenses:,.0f}")
+    with col_an3: st.metric("बचत दर", f"{savings_rate:.1f}%")
+    comp_df = pd.DataFrame({"रकम (₹)": [total_gross_income, total_expenses, max(total_gross_income - total_expenses, 0.0)]}, index=["कमाई", "ख़र्च", "शुद्ध बचत"])
+    st.bar_chart(comp_df)
 
 # ----------------- TAB 1: TOTAL DASHBOARD -----------------
 with tab1:
     col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-    with col_m1:
-        st.metric("शुद्ध नकद बचत", f"₹{total_net_cash:,.0f}")
-    with col_m2:
-        st.metric("गोल्ड व एसेट्स", f"₹{total_assets:,.0f}")
-    with col_m3:
-        st.metric("कर्ज़ (देना है)", f"₹{total_liabilities:,.0f}")
-    with col_m4:
-        st.metric("शुद्ध नेटवर्थ 👑", f"₹{total_networth:,.0f}")
+    with col_m1: st.metric("शुद्ध नकद बचत", f"₹{total_net_cash:,.0f}")
+    with col_m2: st.metric("गोल्ड व एसेट्स", f"₹{total_assets:,.0f}")
+    with col_m3: st.metric("कर्ज़ (देना है)", f"₹{total_liabilities:,.0f}")
+    with col_m4: st.metric("शुद्ध नेटवर्थ 👑", f"₹{total_networth:,.0f}")
 
     progress_val = min(total_networth / TARGET, 1.0)
     st.write(f"### 🎯 100 करोड़ लक्ष्य प्रोग्रेस: `{progress_val * 100:.6f}%`")
@@ -644,15 +669,14 @@ with tab1:
         elements = []
         styles = getSampleStyleSheet()
         elements.append(Paragraph("100 CRORE TARGET - OFFICIAL WEALTH AUDIT", styles['Heading1']))
-        elements.append(Paragraph(f"Date: {date.today().strftime('%d %B %Y')} | Confidential", styles['Normal']))
+        elements.append(Paragraph(f"Account: {ACTIVE_USER} | Date: {date.today().strftime('%d %B %Y')}", styles['Normal']))
         elements.append(Spacer(1, 15))
         summary_data = [
             ["Financial Metric", "Amount (INR)", "Status"],
             ["Total Networth", f"Rs. {total_networth:,.0f}", f"{(total_networth/TARGET)*100:.6f}%"],
             ["Net Liquid Cash", f"Rs. {total_net_cash:,.0f}", "In Hand"],
             ["Total Assets & Gold", f"Rs. {total_assets:,.0f}", "Valuation"],
-            ["Total Liabilities", f"Rs. {total_liabilities:,.0f}", "Debt"],
-            ["Player Rank", str(level_title), "Ranked"]
+            ["Total Liabilities", f"Rs. {total_liabilities:,.0f}", "Debt"]
         ]
         t = Table(summary_data, colWidths=[200, 170, 170])
         t.setStyle(TableStyle([
@@ -667,13 +691,13 @@ with tab1:
         return buffer
 
     st.download_button(
-        label="📥 वेल्थ ऑडिट PDF रिपोर्ट डाउनलोड करें",
+        label="📥 आधिकारिक वेल्थ ऑडिट PDF डाउनलोड करें",
         data=generate_wealth_pdf(),
-        file_name=f"Wealth_Report_{date.today()}.pdf",
+        file_name=f"Wealth_Report_{ACTIVE_USER}_{date.today()}.pdf",
         mime="application/pdf"
     )
 
-# ----------------- TAB 4: ROADMAP & STEP-UP -----------------
+# ----------------- TAB 4: ROADMAP -----------------
 with tab4:
     st.subheader("🪜 माइलस्टोन लेडर")
     milestones = [
@@ -703,20 +727,3 @@ with tab_blueprint:
         {"उत्पाद/सर्विस": "₹1,00,000 का हाई-टिकट बिज़नेस", "आवश्यक ग्राहक": "10,000 लोग", "कुल": "₹100 करोड़"}
     ]
     st.dataframe(pd.DataFrame(blueprint_table), use_container_width=True)
-
-# ----------------- TAB 5: DISCIPLINE -----------------
-with tab5:
-    st.subheader("🔥 दैनिक अनुशासन व स्ट्राइक")
-    today_savings = 0.0
-    if not cash_df.empty:
-        today_rows = cash_df[cash_df["तारीख"] == today_str]
-        today_savings = today_rows["रकम (₹)"].sum()
-
-    col_d1, col_d2 = st.columns(2)
-    with col_d1:
-        daily_target = st.number_input("दैनिक लक्ष्य (₹):", min_value=500, value=2000, step=500)
-    with col_d2:
-        st.metric("आज की कमाई", f"₹{today_savings:,.0f}")
-
-    daily_prog = min(today_savings / daily_target, 1.0)
-    st.progress(daily_prog)
