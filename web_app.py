@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import sqlite3
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 import random
 import io
 import requests
@@ -269,8 +269,9 @@ st.title("👑 100 Crore Wealth Hub")
 st.caption(f"व्यक्तिगत खाता: **{ACTIVE_USER}** | नकद, सोना, संपत्तियां व 100 Cr का सफ़र")
 
 # टैब्स
-tab1, tab_fire, tab_roundup, tab_tax, tab_ai, tab_wishlist, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab_blueprint = st.tabs([
+tab1, tab_cal, tab_fire, tab_roundup, tab_tax, tab_ai, tab_wishlist, tab_game, tab2, tab_exp, tab_debt, tab_health, tab_analytics, tab3, tab4, tab_blueprint = st.tabs([
     "📊 डैशबोर्ड", 
+    "📅 वित्तीय कैलेंडर",
     "🌴 पैसिव आज़ादी",
     "🪙 UPI राउंड-अप",
     "⚖️ टैक्स व इन-हैंड",
@@ -325,9 +326,8 @@ total_networth = max(total_net_cash + total_assets + total_receivables - total_l
 savings_rate = ((total_gross_income - total_expenses) / total_gross_income * 100) if total_gross_income > 0 else 0.0
 
 today_str = str(date.today())
-current_month_prefix = today_str[:7]  # YYYY-MM
+current_month_prefix = today_str[:7]
 
-# इस महीने की गणना
 month_inc = 0.0
 month_exp = 0.0
 if not cash_df.empty:
@@ -367,6 +367,64 @@ elif total_networth >= 10000:
 else:
     level_title = "🐺 The Lone Hustler"
     level_num = 1
+
+# ----------------- TAB: CALENDAR (NEW) -----------------
+with tab_cal:
+    st.subheader("📅 दैनिक वित्तीय कैलेंडर व डायरी (Daily Wealth Diary)")
+    st.caption("किसी भी तारीख को चुनकर उस दिन की पूरी वित्तीय रिपोर्ट और विवरण देखें:")
+
+    sel_cal_date = st.date_input("तारीख चुनें:", value=date.today(), key="wealth_cal_picker")
+    sel_date_str = str(sel_cal_date)
+
+    # उस दिन का डेटा फ़िल्टर
+    day_inc = 0.0
+    day_exp = 0.0
+    day_inc_df = pd.DataFrame()
+    day_exp_df = pd.DataFrame()
+    day_asset_df = pd.DataFrame()
+
+    if not cash_df.empty:
+        day_inc_df = cash_df[cash_df["तारीख"] == sel_date_str]
+        day_inc = day_inc_df["रकम (₹)"].sum()
+
+    if not exp_df.empty:
+        day_exp_df = exp_df[exp_df["तारीख"] == sel_date_str]
+        day_exp = day_exp_df["रकम (₹)"].sum()
+
+    if not asset_df.empty:
+        day_asset_df = asset_df[asset_df["तारीख"] == sel_date_str]
+
+    day_net = day_inc - day_exp
+
+    col_cd1, col_cd2, col_cd3 = st.columns(3)
+    with col_cd1:
+        st.metric("उस दिन की कमाई", f"₹{day_inc:,.0f}")
+    with col_cd2:
+        st.metric("उस दिन का ख़र्च", f"₹{day_exp:,.0f}")
+    with col_cd3:
+        st.metric("शुद्ध दैनिक बचत", f"₹{day_net:,.0f}", delta=f"{day_net:+,.0f}")
+
+    st.divider()
+    st.markdown(f"#### 📝 {sel_cal_date.strftime('%d %B %Y')} की विस्तृत एंट्रियां:")
+
+    c_tab1, c_tab2, c_tab3 = st.tabs(["💵 कमाई एंट्रियां", "💸 ख़र्च एंट्रियां", "🥇 संपत्तियां/सोना"])
+    with c_tab1:
+        if not day_inc_df.empty:
+            st.dataframe(day_inc_df.drop(columns=["id"]), use_container_width=True)
+        else:
+            st.info("इस तारीख को कोई कमाई दर्ज नहीं हुई थी।")
+
+    with c_tab2:
+        if not day_exp_df.empty:
+            st.dataframe(day_exp_df.drop(columns=["id"]), use_container_width=True)
+        else:
+            st.info("इस तारीख को कोई ख़र्च दर्ज नहीं हुआ था।")
+
+    with c_tab3:
+        if not day_asset_df.empty:
+            st.dataframe(day_asset_df.drop(columns=["id"]), use_container_width=True)
+        else:
+            st.info("इस तारीख को कोई नई संपत्ति/सोना नहीं जोड़ा गया था।")
 
 # ----------------- TAB: PASSIVE FIRE FREEDOM ENGINE -----------------
 with tab_fire:
@@ -713,7 +771,6 @@ with tab1:
     st.progress(progress_val)
     st.info(f"💡 100 करोड़ के लक्ष्य में अभी ₹{TARGET - total_networth:,.0f} शेष हैं।")
 
-    # इस महीने का क्लोजिंग स्नैपशॉट
     st.divider()
     st.subheader("📅 इस महीने का वित्तीय स्नैपशॉट (Current Month)")
     col_mo1, col_mo2, col_mo3 = st.columns(3)
