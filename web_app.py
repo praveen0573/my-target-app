@@ -7,6 +7,7 @@ import io
 import requests
 import math
 import os
+from PIL import Image, ImageDraw, ImageFont
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -269,13 +270,6 @@ st.markdown(f"""
         text-align: center;
         box-shadow: 0 10px 30px rgba(229, 169, 60, 0.2);
     }}
-    .booster-box {{
-        background: linear-gradient(135deg, #182234 0%, #0e1626 100%);
-        border: 1px solid #38bdf8;
-        border-radius: 12px;
-        padding: 16px;
-        margin-bottom: 12px;
-    }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -366,7 +360,7 @@ while str(check_day) in unique_dates:
     streak += 1
     check_day = check_day - timedelta(days=1)
 
-# ----------------- TAB: SPEED BOOSTER (NEW & POWERFUL) -----------------
+# ----------------- TAB: SPEED BOOSTER -----------------
 with tab_booster:
     st.subheader("⚡ 100 करोड़ स्पीड एक्सीलरेटर (Wealth Multiplier)")
     st.caption("हज़ारों साल का इंतज़ार खत्म: 2 छोटे फ़ाइनेंशियल फ़ैसले जो 100 करोड़ को आपकी ज़िंदगी में खींच लाएँगे!")
@@ -376,7 +370,6 @@ with tab_booster:
         base_daily = 500.0
 
     raw_years = ((TARGET - total_networth) / base_daily) / 365
-
     st.markdown(f"#### 🐢 वर्तमान धीमी गति: **₹{base_daily:,.0f} / दिन** (समय लगेगा: ~{raw_years:.0f} वर्ष)")
 
     st.write("---")
@@ -391,25 +384,19 @@ with tab_booster:
         st.caption("चाय, पेट्रोल व गैर-ज़रूरी छोटे ख़र्चों से बचाकर सोने में जमा करना।")
 
     added_daily = 0.0
-    if st.session_state["boost_hustle"]:
-        added_daily += 1000.0
-    if st.session_state["boost_cut"]:
-        added_daily += 300.0
+    if st.session_state["boost_hustle"]: added_daily += 1000.0
+    if st.session_state["boost_cut"]: added_daily += 300.0
 
     new_daily = base_daily + added_daily
     new_monthly_saving = new_daily * 30
 
-    # 15% कम्पाउंडिंग के साथ वास्तविक वर्ष
     r_mo = 0.15 / 12
-    # target = PMT * (((1+r)^n - 1)/r)
-    # n = ln((Target * r / PMT) + 1) / ln(1 + r)
     try:
         n_months = math.log(((TARGET - total_networth) * r_mo / new_monthly_saving) + 1) / math.log(1 + r_mo)
         accelerated_years = n_months / 12
     except Exception:
         accelerated_years = 15.0
 
-    st.write("")
     col_acc1, col_acc2 = st.columns(2)
     with col_acc1:
         st.metric("नई बूस्टेड दैनिक कमाई", f"₹{new_daily:,.0f} / दिन", delta=f"+₹{added_daily:,.0f}")
@@ -418,42 +405,67 @@ with tab_booster:
 
     years_saved = max(raw_years - accelerated_years, 0.0)
     st.success(f"🎉 **अविश्वसनीय छलांग:** इन 2 छोटे बूस्टर्स ने आपकी ज़िंदगी के लगभग **{years_saved:,.0f} वर्ष बचा लिए**!")
-    st.info("💡 **गुप्त सूत्र:** 100 करोड़ सिर्फ़ बचाने से नहीं, बल्कि रोज़ ₹1,000 की नई डिजिटल आय जोड़कर उसे सोने व कम्पाउंडिंग में लॉक करने से आता है!")
 
-# ----------------- TAB: ELITE 1% CLUB & TIME MACHINE -----------------
+# ----------------- TAB: ELITE 1% CLUB & CARD DOWNLOAD -----------------
 with tab_elite:
     st.subheader("👑 The Top 1% Wealth Club & Future Time-Machine")
-    st.caption("जानिए आप देश और दुनिया में किस लेवल पर खड़े हैं:")
+    st.caption("जानिए आप देश और दुनिया में किस स्तर पर खड़े हैं:")
 
     if total_networth >= 100000000:
-        percentile = "Top 0.01% (Ultra-Elite Titan)"
-        next_bracket = "Forbes Global List 🏆"
+        percentile = "Top 0.01% Titan"
+        badge_name = "🔱 SHADOW TITAN"
     elif total_networth >= 10000000:
-        percentile = "Top 0.5% (Crorepati Club)"
-        next_bracket = "Top 0.1% (5 Cr Club)"
+        percentile = "Top 0.5% Crorepati"
+        badge_name = "👑 CENTURION MOGUL"
     elif total_networth >= 2500000:
-        percentile = "Top 3% (Prosperous Builder)"
-        next_bracket = "Top 1% (1 Cr Club)"
+        percentile = "Top 3% Wealth Builder"
+        badge_name = "🦅 EMPIRE ARCHITECT"
     elif total_networth >= 500000:
-        percentile = "Top 10% (Strong Capitalist)"
-        next_bracket = "Top 5% (25 Lakh Club)"
+        percentile = "Top 10% Capitalist"
+        badge_name = "🛡️ GOLD GUARDIAN"
     elif total_networth >= 50000:
-        percentile = "Top 30% (Rising Hustler)"
-        next_bracket = "Top 10% (5 Lakh Club)"
+        percentile = "Top 30% Rising Player"
+        badge_name = "⚡ RISING SPARK"
     else:
         percentile = "Ground Zero Builder"
-        next_bracket = "Top 30% (50k Club)"
+        badge_name = "🐺 LONE HUSTLER"
 
     st.markdown(f"""
     <div class="vip-card">
         <h4 style="color: #e5a93c !important; letter-spacing: 2px; margin: 0;">VERIFIED WEALTH STATUS</h4>
         <h1 style="color: #ffffff !important; font-size: 2.1rem; margin: 10px 0;">{percentile}</h1>
         <p style="color: #cbd5e0 !important; font-size: 1rem; margin-bottom: 0;">
-            Account: <b>{ACTIVE_USER}</b> | Networth: <b>₹{total_networth:,.0f}</b>
+            रैंक: <b>{badge_name}</b> | स्ट्रीक: <b>🔥 {streak} दिन</b>
         </p>
     </div>
     """, unsafe_allow_html=True)
-    st.success(f"🎯 **अगला लक्ष्य:** {next_bracket} में शामिल होना!")
+
+    # 1-CLICK HD IMAGE GENERATION (PIL)
+    def generate_flex_image(badge, streak_days, rank_text):
+        img = Image.new('RGB', (800, 450), color=(18, 20, 26))
+        draw = ImageDraw.Draw(img)
+        # Gold Border
+        draw.rectangle([15, 15, 785, 435], outline=(229, 169, 60), width=4)
+        draw.text((400, 70), "100 CRORE WEALTH CLUB", fill=(229, 169, 60), anchor="mm")
+        draw.text((400, 160), badge, fill=(255, 255, 255), anchor="mm")
+        draw.text((400, 240), f"STATUS: {rank_text}", fill=(160, 174, 192), anchor="mm")
+        draw.text((400, 310), f"DISCIPLINE STREAK: {streak_days} DAYS", fill=(245, 158, 11), anchor="mm")
+        draw.text((400, 380), "OFFICIAL VERIFIED WEALTH BUILDER", fill=(100, 116, 139), anchor="mm")
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+        return buf
+
+    st.write("")
+    flex_img_data = generate_flex_image(badge_name, streak, percentile)
+    st.download_button(
+        label="📸 अपना HD स्टेटस कार्ड डाउनलोड करें (PNG)",
+        data=flex_img_data,
+        file_name=f"Elite_Card_{ACTIVE_USER}.png",
+        mime="image/png",
+        key="btn_dl_flex_png"
+    )
+    st.caption("👉 इसे सीधे WhatsApp Status, Instagram Story या Reel में शेयर करें!")
 
     st.divider()
     st.subheader("⏳ Future Time-Machine (1-Click Future Prediction)")
@@ -488,7 +500,7 @@ with tab_elite:
     with col_tm1:
         st.metric(f"वर्ष {future_year} में नेटवर्थ 💰", f"₹{future_val:,.0f}")
     with col_tm2:
-        st.metric(f"हर महीने बिना काम किए पैसिव सैलरी 🌴", f"₹{future_passive_mo:,.0f} / माह")
+        st.metric(f"पैसिव सैलरी 🌴", f"₹{future_passive_mo:,.0f} / माह")
 
 # ----------------- TAB: CALENDAR -----------------
 with tab_cal:
@@ -644,7 +656,7 @@ with tab_game:
     st.markdown(f"""
     <div class="vip-card">
         <h3 style="color: #e5a93c !important; margin: 0;">CURRENT RANK</h3>
-        <h1 style="color: #ffffff !important; font-size: 2.2rem; margin: 10px 0;">{percentile}</h1>
+        <h1 style="color: #ffffff !important; font-size: 2.2rem; margin: 10px 0;">{badge_name}</h1>
         <p style="color: #a0aec0 !important; font-size: 1rem;">DISCIPLINE STREAK: <b>🔥 {streak} DAYS</b></p>
     </div>
     """, unsafe_allow_html=True)
